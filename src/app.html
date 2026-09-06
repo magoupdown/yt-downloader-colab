@@ -90,6 +90,10 @@
   #ytd .btn .spin { width:16px; height:16px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation: ytdSpin .7s linear infinite; }
   @keyframes ytdSpin { to { transform: rotate(360deg);} }
   #ytd .hint { font-size:12.5px; color:var(--muted-2); margin-top:12px; }
+  #ytd .hint b { color:var(--muted); font-weight:700; }
+  #ytd .linkmode { display:flex; flex-direction:column; align-items:center; gap:10px; margin:18px auto 0; max-width:760px; }
+  #ytd .linkmode .lm-label { font-size:13px; font-weight:700; color:var(--muted); }
+  #ytd .linkmode .chips { justify-content:center; }
   #ytd .actions { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:20px; }
   #ytd .actions .right { display:flex; gap:10px; margin-left:auto; flex-wrap:wrap; }
 
@@ -294,7 +298,15 @@
           <button class="btn" id="pasteBtn" title="Colar da área de transferência">📋 Colar</button>
           <button class="btn primary" id="analyzeBtn">Analisar link →</button>
         </div>
-        <p class="hint" id="urlHint">Dica: se o link tiver vídeo e playlist ao mesmo tempo, eu pergunto qual dos dois você quer.</p>
+        <div class="linkmode" id="linkMode">
+          <span class="lm-label">O que você quer baixar deste link?</span>
+          <div class="chips">
+            <button class="chipbtn sel" data-lm="auto" title="Eu analiso o link: se tiver vídeo e playlist, pergunto qual você quer">✨ Detectar automaticamente</button>
+            <button class="chipbtn" data-lm="video" title="Ignora a playlist e baixa só o vídeo do link">🎬 Somente o vídeo</button>
+            <button class="chipbtn" data-lm="playlist" title="Usa a playlist (list=) ou o canal do link e ignora o vídeo">📃 Playlist completa</button>
+          </div>
+        </div>
+        <p class="hint" id="urlHint">Dica: links de playlist têm <b>list=</b> no endereço (ex.: …/playlist?list=PL…). Links de canal baixam a aba Vídeos. Mixes automáticos ("Minha mix", list=RD…) não podem ser listados pelo YouTube por fora do player.</p>
       </div>
 
       <details class="card" id="cookiesCard">
@@ -583,14 +595,18 @@
     catch(e){ toast('O navegador não permitiu ler a área de transferência aqui. Use Ctrl+V no campo.', 'warn'); $('#urlInput').focus(); }
   });
   $('#urlInput').addEventListener('keydown', e => { if(e.key==='Enter') $('#analyzeBtn').click(); });
+  // seletor: detectar / só vídeo / playlist completa
+  S.linkMode = 'auto';
+  $$('[data-lm]').forEach(b => b.addEventListener('click', () => { S.linkMode = b.dataset.lm; $$('[data-lm]').forEach(x => x.classList.toggle('sel', x === b)); }));
   $('#analyzeBtn').addEventListener('click', async () => {
     const url = $('#urlInput').value.trim();
     if(!url) return toast('Cole um link do YouTube primeiro.', 'warn');
     if(!/youtu\.?be/i.test(url)) return toast('Isso não parece um link do YouTube.', 'warn');
+    if(S.linkMode === 'playlist' && !/[?&]list=/i.test(url) && !/youtube\.com\/(@|channel\/|c\/|user\/)/i.test(url)) return toast('Este link não tem uma playlist (falta "list=" no endereço). Abra a playlist no YouTube e copie o link dela, ou escolha "Somente o vídeo".', 'warn', 8000);
     const btn = $('#analyzeBtn'); busy(btn, true, 'Analisando…');
-    $('#previewArea').innerHTML = `<div class="card loading"><div class="ring"></div><p>Buscando informações no YouTube…<br><span class="small muted">Playlists grandes podem levar alguns segundos.</span></p></div>`;
+    $('#previewArea').innerHTML = `<div class="card loading"><div class="ring"></div><p>Buscando informações no YouTube…<br><span class="small muted">${S.linkMode==='video' ? 'Analisando o vídeo.' : 'Playlists grandes podem levar alguns segundos.'}</span></p></div>`;
     goto(2); $('#toFormatBtn').disabled = true;
-    const r = await api('analyze', url); busy(btn, false);
+    const r = await api('analyze', url, S.linkMode); busy(btn, false);
     if(!r.ok){
       $('#previewArea').innerHTML = `<div class="card"><div class="result-head"><div class="big err">⚠️</div><div><h2 style="margin:0">Não consegui analisar esse link</h2><p class="sub" style="margin:4px 0 0">${esc(r.error)}</p></div></div>${/cookie/i.test(r.error) ? '<div class="note warn" style="margin-top:14px">Abra a seção <b>Cookies da sua conta</b> na etapa anterior, carregue o arquivo e tente de novo.</div>' : ''}</div>`;
       return;
@@ -610,6 +626,7 @@
         <button class="choice ${S.choice==='video'?'sel':''}" data-choice="video"><span class="ic">🎬</span><span class="t">Somente este vídeo</span><span class="d">${esc(a.video.title)}</span></button>
         <button class="choice ${S.choice==='playlist'?'sel':''}" data-choice="playlist"><span class="ic">📃</span><span class="t">A playlist completa</span><span class="d">${esc(a.playlist.title)} · ${a.playlist.count} vídeos</span></button></div></div>`;
     }
+    if(a.playlist_error) html += `<div class="card" style="border-color: color-mix(in srgb, var(--warn) 45%, transparent)"><div class="row"><span style="font-size:22px">⚠️</span><div><b>A playlist deste link não pôde ser carregada</b><div class="small muted" style="margin-top:4px">${esc(a.playlist_error)} Você ainda pode baixar o vídeo abaixo.</div></div></div></div>`;
     if(S.choice === 'video') html += videoCard(a.video);
     else if(S.choice === 'playlist') html += playlistCard(a.playlist);
     area.innerHTML = html;
@@ -648,8 +665,9 @@
     const avail = p.items.filter(i=>!i.unavailable).length;
     return `<div class="card">
       <div class="plhead"><img src="${esc(p.thumbnail||'')}" alt=""><div>
-        <span class="badge acc">PLAYLIST</span>
+        <span class="badge acc">${p.is_mix ? 'MIX AUTOMÁTICO' : 'PLAYLIST'}</span>
         <h3 class="vtitle" style="margin-top:8px">${esc(p.title)}</h3>
+        ${p.is_mix ? '<div class="small muted" style="margin-bottom:6px">Mixes são gerados pelo YouTube e mudam a cada acesso. Estes são os vídeos que ele montou agora.</div>' : ''}
         <div class="vchan">📺 ${esc(p.channel||'—')}</div>
         <div class="meta" style="margin:0"><span class="badge">🎞 ${p.count} vídeos</span><span class="badge">⏱ ${fmtLong(p.total_duration)} no total</span>${avail<p.count ? `<span class="badge warn">${p.count-avail} indisponíveis</span>`:''}</div>
       </div></div>

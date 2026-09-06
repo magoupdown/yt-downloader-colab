@@ -107,8 +107,9 @@ def _thumb(info):
         t = f"https://i.ytimg.com/vi/{info['id']}/hqdefault.jpg"
     return t
 
-def _parse_url(url):
-    """Descobre se o link aponta para vídeo, playlist ou ambos."""
+def _parse_url(url, mode='auto'):
+    """Descobre se o link aponta para vídeo, playlist ou ambos.
+    mode: 'auto' (detecta), 'video' (só o vídeo) ou 'playlist' (só a playlist/canal)."""
     u = url.strip()
     if not re.match(r'^https?://', u, re.I):
         u = 'https://' + u
@@ -129,15 +130,31 @@ def _parse_url(url):
             video_id = None
     else:
         raise ValueError('unsupported url: apenas links do YouTube são aceitos.')
-    if playlist_id and playlist_id.startswith('RD') and video_id:
-        # mixes/radio são infinitos; tratamos como vídeo único
-        playlist_id = None
-    if not video_id and not playlist_id:
-        # pode ser canal/aba de vídeos — tratamos como playlist
-        if re.match(r'^/(@[\w.-]+|channel/|c/|user/)', p.path):
-            return {'url': u, 'video_id': None, 'playlist_id': None, 'channel_url': u}
+    is_mix = bool(playlist_id and playlist_id.startswith('RD'))
+    channel_url = u if (not video_id and not playlist_id and re.match(r'^/(@[\w.-]+|channel/|c/|user/)', p.path)) else None
+    if is_mix and video_id:
+        # Mixes ("Minha mix", "Rádio") só existem junto do vídeo de origem
+        playlist_url = f'https://www.youtube.com/watch?v={video_id}&list={playlist_id}'
+    elif playlist_id:
+        playlist_url = f'https://www.youtube.com/playlist?list={playlist_id}'
+    elif channel_url:
+        playlist_url = channel_url.rstrip('/')
+        if not re.search(r'/(videos|shorts|streams|playlists)$', playlist_url):
+            playlist_url += '/videos'
+    else:
+        playlist_url = None
+    if mode == 'video':
+        if not video_id:
+            raise ValueError('Você escolheu "somente o vídeo", mas este link não aponta para um vídeo. Cole o link de um vídeo (watch?v=…, youtu.be/… ou /shorts/…).')
+        playlist_id, playlist_url, channel_url = None, None, None
+    elif mode == 'playlist':
+        if not playlist_url:
+            raise ValueError('Você escolheu "playlist completa", mas este link não contém uma playlist. Abra a playlist no YouTube e copie o link que tem "list=" (ou o link de um canal).')
+        video_id = None
+    if not video_id and not playlist_url:
         raise ValueError('unsupported url: não encontrei um vídeo ou playlist nesse link.')
-    return {'url': u, 'video_id': video_id, 'playlist_id': playlist_id, 'channel_url': None}
+    return {'url': u, 'video_id': video_id, 'playlist_id': playlist_id, 'playlist_url': playlist_url,
+            'channel_url': channel_url, 'is_mix': is_mix}
 
 # ---------- cookies ----------
 def _json_cookies_to_netscape(items):
@@ -317,37 +334,50 @@ def _summarize_entry(e, idx):
         'unavailable': (e.get('title') in ('[Private video]', '[Deleted video]')) or e.get('availability') in ('private', 'premium_only', 'needs_auth', 'subscriber_only'),
     }
 
-def cb_analyze(url):
+def _extract_playlist(pl_url, is_mix=False):
+    opts = _base_opts(); opts.update({'extract_flat': 'in_playlist', 'ignoreerrors': True, 'playlistend': 1000})
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(pl_url, download=False)
+    mix_msg = ('Este link é um Mix automático do YouTube (list=RD…). O YouTube só gera Mixes dentro do player e não permite '
+               'listá-los por fora, então não dá para baixá-lo como playlist. Você pode baixar o vídeo, ou salvar os vídeos '
+               'do Mix em uma playlist sua no YouTube e colar o link dela aqui.')
+    if not info:
+        raise RuntimeError(mix_msg if is_mix else 'O YouTube não retornou a playlist (pode exigir login/cookies ou estar indisponível).')
+    if info.get('_type') != 'playlist' and not info.get('entries'):
+        raise RuntimeError(mix_msg if is_mix else 'Este link não retornou uma playlist.')
+    entries = [e for e in (info.get('entries') or []) if e]
+    items = [_summarize_entry(e, i + 1) for i, e in enumerate(entries)]
+    if not items:
+        raise RuntimeError('A playlist veio vazia. Se ela for privada ou "não listada", carregue os cookies da sua conta.')
+    total_dur = sum((i['duration'] or 0) for i in items)
+    return {
+        'id': info.get('id'), 'title': info.get('title') or ('Mix do YouTube' if is_mix else 'Playlist'),
+        'channel': info.get('uploader') or info.get('channel') or ('YouTube' if is_mix else None), 'url': pl_url,
+        'count': len(items), 'total_duration': total_dur, 'is_mix': is_mix,
+        'thumbnail': _thumb(info) or (items[0]['thumbnail'] if items else None),
+        'description': (info.get('description') or '')[:400],
+        'items': items,
+    }
+
+def cb_analyze(url, mode='auto'):
     try:
-        parsed = _parse_url(url)
-        result = {'ok': True, 'input': parsed['url'], 'video': None, 'playlist': None}
+        parsed = _parse_url(url, mode if mode in ('auto', 'video', 'playlist') else 'auto')
+        result = {'ok': True, 'input': parsed['url'], 'mode': mode, 'video': None, 'playlist': None, 'playlist_error': None}
         if parsed['video_id']:
             opts = _base_opts(); opts['noplaylist'] = True
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={parsed['video_id']}", download=False)
+            if not info:
+                raise RuntimeError('video unavailable')
             result['video'] = _summarize_video(info)
-        pl_url = None
-        if parsed['playlist_id']:
-            pl_url = f"https://www.youtube.com/playlist?list={parsed['playlist_id']}"
-        elif parsed['channel_url']:
-            pl_url = parsed['channel_url'].rstrip('/')
-            if not re.search(r'/(videos|shorts|streams|playlists)$', pl_url):
-                pl_url += '/videos'
-        if pl_url:
-            opts = _base_opts(); opts.update({'extract_flat': 'in_playlist', 'ignoreerrors': True, 'playlistend': 1000})
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(pl_url, download=False)
-            entries = [e for e in (info.get('entries') or []) if e]
-            items = [_summarize_entry(e, i + 1) for i, e in enumerate(entries)]
-            total_dur = sum((i['duration'] or 0) for i in items)
-            result['playlist'] = {
-                'id': info.get('id'), 'title': info.get('title') or 'Playlist',
-                'channel': info.get('uploader') or info.get('channel'), 'url': pl_url,
-                'count': len(items), 'total_duration': total_dur,
-                'thumbnail': _thumb(info) or (items[0]['thumbnail'] if items else None),
-                'description': (info.get('description') or '')[:400],
-                'items': items,
-            }
+        if parsed['playlist_url']:
+            try:
+                result['playlist'] = _extract_playlist(parsed['playlist_url'], parsed['is_mix'])
+            except Exception as e:
+                # o vídeo continua utilizável mesmo se a playlist falhar
+                if not result['video']:
+                    raise
+                result['playlist_error'] = _friendly_error(str(e))
         return JSON(result)
     except Exception as e:
         return JSON({'ok': False, 'error': _friendly_error(str(e))})
