@@ -455,8 +455,18 @@
     if(typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = {ok:false, error:d}; } }
     return d || {ok:false, error:'Sem resposta do Python. Execute a célula do app novamente.'};
   }
+  // Ajusta o quadro de saída do Colab ao conteúdo. Nunca define altura fixa
+  // (uma altura 0 faria o app desaparecer), apenas pede o auto-ajuste.
+  let _rzT = null;
   function resize(){
-    try { if(IS_COLAB) google.colab.output.setIframeHeight(0, true, {maxHeight: 8000}); } catch(e){}
+    if(!IS_COLAB) return;
+    clearTimeout(_rzT);
+    _rzT = setTimeout(() => {
+      try {
+        const o = google.colab.output;
+        if(o && typeof o.resizeIframeToContent === 'function') o.resizeIframeToContent();
+      } catch(e){}
+    }, 60);
   }
   async function fileUrl(rel){
     const path = rel.split('/').map(encodeURIComponent).join('/');
