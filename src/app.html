@@ -1,0 +1,795 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  #ytd, #ytd * { box-sizing: border-box; }
+  #ytd {
+    --bg: #0f1117; --panel: #171a23; --panel-2: #1f232f; --line: #2a2f3d; --line-2: #363c4d;
+    --text: #eef0f6; --muted: #9aa3b8; --muted-2: #6b7389;
+    --accent: #ff2d55; --accent-2: #ff6b81; --accent-soft: rgba(255,45,85,.14);
+    --ok: #22c55e; --ok-soft: rgba(34,197,94,.14); --warn: #f59e0b; --warn-soft: rgba(245,158,11,.14);
+    --err: #ef4444; --err-soft: rgba(239,68,68,.14); --info: #3b82f6; --info-soft: rgba(59,130,246,.14);
+    --radius: 16px; --radius-sm: 10px; --shadow: 0 10px 30px rgba(0,0,0,.35);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text); background: var(--bg); border-radius: 22px; overflow: hidden;
+    max-width: 1100px; margin: 0 auto; min-height: 560px; position: relative; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  #ytd[data-theme="light"] {
+    --bg: #f4f5fa; --panel: #ffffff; --panel-2: #f1f2f8; --line: #e3e6ef; --line-2: #d3d7e3;
+    --text: #141826; --muted: #5b6378; --muted-2: #8a92a8; --shadow: 0 10px 30px rgba(20,24,38,.08);
+  }
+  #ytd .bg-glow { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  #ytd .bg-glow::before { content:''; position:absolute; width:520px; height:520px; left:-160px; top:-260px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,45,85,.28), transparent 70%); filter: blur(10px); }
+  #ytd .bg-glow::after { content:''; position:absolute; width:420px; height:420px; right:-140px; top:40px; border-radius:50%;
+    background: radial-gradient(circle, rgba(59,130,246,.18), transparent 70%); filter: blur(10px); }
+  #ytd[data-theme="light"] .bg-glow::before { opacity:.35 } #ytd[data-theme="light"] .bg-glow::after { opacity:.35 }
+
+  /* ---- topbar ---- */
+  #ytd .topbar { position:relative; display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:18px 22px; border-bottom:1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); backdrop-filter: blur(10px); }
+  #ytd .brand { display:flex; align-items:center; gap:12px; margin-right:auto; }
+  #ytd .logo { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; background: linear-gradient(135deg, var(--accent), #ff8a5b); box-shadow: 0 6px 18px rgba(255,45,85,.35); }
+  #ytd .logo svg { width:22px; height:22px; fill:#fff; }
+  #ytd .brand h1 { font-size:17px; margin:0; font-weight:800; letter-spacing:-.01em; }
+  #ytd .brand p { margin:0; font-size:12px; color:var(--muted); }
+  #ytd .chip { display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid var(--line); background:var(--panel-2); color:var(--muted); white-space:nowrap; }
+  #ytd .chip .dot { width:8px; height:8px; border-radius:50%; background:var(--muted-2); }
+  #ytd .chip.ok { color:var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); background:var(--ok-soft);} #ytd .chip.ok .dot{background:var(--ok)}
+  #ytd .chip.warn { color:var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); background:var(--warn-soft);} #ytd .chip.warn .dot{background:var(--warn)}
+  #ytd .chip.err { color:var(--err); background:var(--err-soft);} #ytd .chip.err .dot{background:var(--err)}
+  #ytd .chip.info { color:var(--info); background:var(--info-soft);} #ytd .chip.info .dot{background:var(--info)}
+  #ytd .chip.clickable { cursor:pointer; } #ytd .chip.clickable:hover { border-color: var(--line-2); }
+  #ytd .user { display:flex; align-items:center; gap:9px; padding:5px 12px 5px 5px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); font-size:12.5px; font-weight:600; max-width:100%; }
+  #ytd .avatar { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; background: linear-gradient(135deg,#3b82f6,#8b5cf6); flex:none; }
+  #ytd .user span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  #ytd .icon-btn { width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer; display:grid; place-items:center; font-size:16px; }
+  #ytd .icon-btn:hover { border-color:var(--line-2); }
+
+  /* ---- stepper ---- */
+  #ytd .stepper { position:relative; display:flex; gap:6px; padding:16px 22px 0; overflow-x:auto; scrollbar-width:none; }
+  #ytd .stepper::-webkit-scrollbar{display:none}
+  #ytd .step { flex:1; min-width:120px; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; border:1px solid transparent; color:var(--muted-2); font-size:12.5px; font-weight:600; cursor:default; transition: all .2s; }
+  #ytd .step .n { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; background:var(--panel-2); border:1px solid var(--line); flex:none; }
+  #ytd .step.done { color:var(--muted); cursor:pointer; } #ytd .step.done .n { background:var(--ok-soft); border-color:transparent; color:var(--ok); }
+  #ytd .step.active { color:var(--text); background:var(--panel); border-color:var(--line); box-shadow:var(--shadow); }
+  #ytd .step.active .n { background:var(--accent); border-color:transparent; color:#fff; }
+  #ytd .step.done:hover { background:var(--panel); }
+
+  /* ---- main ---- */
+  #ytd main { position:relative; padding:20px 22px 26px; }
+  #ytd section[data-step] { display:none; animation: ytdFade .25s ease; }
+  #ytd section[data-step].on { display:block; }
+  @keyframes ytdFade { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none;} }
+  #ytd .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+  #ytd .card + .card { margin-top:16px; }
+  #ytd h2 { font-size:20px; margin:0 0 6px; font-weight:800; letter-spacing:-.01em; }
+  #ytd h3 { font-size:14px; margin:0 0 10px; font-weight:700; color:var(--text); }
+  #ytd .sub { margin:0 0 16px; color:var(--muted); font-size:13.5px; }
+  #ytd .hero { text-align:center; padding:34px 20px 26px; }
+  #ytd .hero h2 { font-size:26px; }
+  #ytd .hero .sub { font-size:14.5px; max-width:560px; margin:0 auto 22px; }
+
+  #ytd .input-row { display:flex; gap:10px; align-items:stretch; max-width:760px; margin:0 auto; }
+  #ytd .field { position:relative; flex:1; display:flex; align-items:center; }
+  #ytd .field svg { position:absolute; left:14px; width:18px; height:18px; fill:var(--muted-2); pointer-events:none; }
+  #ytd input[type=text], #ytd textarea { width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:14px 14px 14px 42px; font:inherit; font-size:14.5px; outline:none; transition: border .15s, box-shadow .15s; }
+  #ytd textarea { padding:12px 14px; min-height:110px; resize:vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:12px; }
+  #ytd input[type=text].plain { padding-left:14px; }
+  #ytd input[type=text]:focus, #ytd textarea:focus { border-color:var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #ytd input::placeholder { color:var(--muted-2); }
+
+  #ytd .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); color:var(--text); font:inherit; font-size:14px; font-weight:700; cursor:pointer; transition: transform .08s, background .15s, border-color .15s, opacity .15s; white-space:nowrap; text-decoration:none; }
+  #ytd .btn:hover { border-color:var(--line-2); } #ytd .btn:active { transform: translateY(1px) scale(.99); }
+  #ytd .btn.primary { background: linear-gradient(135deg, var(--accent), #ff5d3a); border-color:transparent; color:#fff; box-shadow: 0 8px 20px rgba(255,45,85,.3); }
+  #ytd .btn.primary:hover { filter: brightness(1.06); }
+  #ytd .btn.ghost { background:transparent; }
+  #ytd .btn.danger { color:var(--err); border-color: color-mix(in srgb, var(--err) 40%, transparent); background:var(--err-soft); }
+  #ytd .btn.sm { padding:8px 12px; font-size:12.5px; border-radius:10px; }
+  #ytd .btn.lg { padding:15px 26px; font-size:15px; border-radius:14px; }
+  #ytd .btn:disabled { opacity:.45; cursor:not-allowed; transform:none; filter:none; }
+  #ytd .btn .spin { width:16px; height:16px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation: ytdSpin .7s linear infinite; }
+  @keyframes ytdSpin { to { transform: rotate(360deg);} }
+  #ytd .hint { font-size:12.5px; color:var(--muted-2); margin-top:12px; }
+  #ytd .actions { display:flex; gap:10px; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-top:20px; }
+  #ytd .actions .right { display:flex; gap:10px; margin-left:auto; flex-wrap:wrap; }
+
+  /* ---- collapsible ---- */
+  #ytd details.card { padding:0; }
+  #ytd details.card > summary { list-style:none; cursor:pointer; padding:16px 20px; display:flex; align-items:center; gap:12px; font-weight:700; font-size:14px; }
+  #ytd details.card > summary::-webkit-details-marker { display:none; }
+  #ytd details.card > summary .chev { margin-left:auto; transition: transform .2s; color:var(--muted); }
+  #ytd details.card[open] > summary .chev { transform: rotate(180deg); }
+  #ytd details.card > .body { padding:0 20px 20px; border-top:1px solid var(--line); padding-top:16px; }
+  #ytd .steps-help { counter-reset: s; margin:0; padding:0; list-style:none; display:grid; gap:10px; }
+  #ytd .steps-help li { display:flex; gap:12px; font-size:13px; color:var(--muted); align-items:flex-start; }
+  #ytd .steps-help li::before { counter-increment:s; content: counter(s); width:22px; height:22px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:800; font-size:11.5px; display:grid; place-items:center; flex:none; margin-top:1px; }
+  #ytd .steps-help b, #ytd .sub b { color:var(--text); font-weight:600; }
+  #ytd .steps-help a, #ytd .note a, #ytd .sub a { color:var(--info); text-decoration:none; font-weight:600; }
+  #ytd .note { font-size:12.5px; color:var(--muted); padding:12px 14px; border-radius:12px; background:var(--panel-2); border:1px dashed var(--line-2); margin-top:14px; }
+  #ytd .note.warn { border-color: color-mix(in srgb, var(--warn) 45%, transparent); background:var(--warn-soft); color: var(--text); }
+  #ytd .note.info { border-color: color-mix(in srgb, var(--info) 45%, transparent); background:var(--info-soft); color: var(--text); }
+  #ytd .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  #ytd .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+
+  /* ---- selectable cards ---- */
+  #ytd .choices { display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; }
+  #ytd .choice { position:relative; text-align:left; padding:16px; border-radius:14px; border:1px solid var(--line); background:var(--panel-2); cursor:pointer; transition: all .15s; color:var(--text); font:inherit; }
+  #ytd .choice:hover { border-color:var(--line-2); transform: translateY(-1px); }
+  #ytd .choice.sel { border-color:var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: color-mix(in srgb, var(--accent-soft) 40%, var(--panel-2)); }
+  #ytd .choice .ic { font-size:24px; margin-bottom:8px; display:block; }
+  #ytd .choice .t { font-weight:800; font-size:15px; display:block; }
+  #ytd .choice .d { color:var(--muted); font-size:12.5px; margin-top:4px; display:block; }
+  #ytd .choice .badge { position:absolute; top:12px; right:12px; }
+  #ytd .choice.sel::after { content:'✓'; position:absolute; right:12px; bottom:12px; width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; font-weight:800; display:grid; place-items:center; }
+  #ytd .quality { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+  #ytd .quality .choice { padding:14px; }
+  #ytd .quality .choice .t { font-size:17px; }
+  #ytd .quality .choice.sel::after { display:none; }
+  #ytd .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:7px; font-size:11px; font-weight:800; letter-spacing:.02em; background:var(--panel); border:1px solid var(--line); color:var(--muted); }
+  #ytd .badge.acc { background:var(--accent-soft); color:var(--accent); border-color:transparent; }
+  #ytd .badge.ok { background:var(--ok-soft); color:var(--ok); border-color:transparent; }
+  #ytd .badge.warn { background:var(--warn-soft); color:var(--warn); border-color:transparent; }
+  #ytd .badge.err { background:var(--err-soft); color:var(--err); border-color:transparent; }
+  #ytd .badge.info { background:var(--info-soft); color:var(--info); border-color:transparent; }
+  #ytd .chips { display:flex; gap:8px; flex-wrap:wrap; }
+  #ytd .chips .chipbtn { padding:8px 13px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); color:var(--text); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+  #ytd .chips .chipbtn.sel { background:var(--accent); border-color:transparent; color:#fff; }
+
+  /* ---- preview ---- */
+  #ytd .preview { display:grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap:20px; align-items:start; }
+  #ytd .player { position:relative; border-radius:14px; overflow:hidden; background:#000; aspect-ratio:16/9; cursor:pointer; border:1px solid var(--line); }
+  #ytd .player img { width:100%; height:100%; object-fit:cover; display:block; }
+  #ytd .player iframe { width:100%; height:100%; border:0; display:block; }
+  #ytd .player .play { position:absolute; inset:0; display:grid; place-items:center; background: linear-gradient(to top, rgba(0,0,0,.55), transparent 60%); }
+  #ytd .player .play span { width:64px; height:46px; border-radius:14px; background:var(--accent); display:grid; place-items:center; box-shadow: 0 10px 25px rgba(0,0,0,.5); transition: transform .15s; }
+  #ytd .player:hover .play span { transform: scale(1.06); }
+  #ytd .player .play svg { width:22px; height:22px; fill:#fff; margin-left:3px; }
+  #ytd .player .dur { position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.8); color:#fff; padding:3px 7px; border-radius:6px; font-size:12px; font-weight:700; }
+  #ytd .vtitle { font-size:18px; font-weight:800; margin:0 0 6px; line-height:1.3; letter-spacing:-.01em; }
+  #ytd .vchan { color:var(--muted); font-size:13.5px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  #ytd .vchan a { color:var(--text); font-weight:600; text-decoration:none; }
+  #ytd .meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  #ytd .desc { font-size:13px; color:var(--muted); white-space:pre-wrap; max-height:96px; overflow:hidden; position:relative; }
+  #ytd .desc.open { max-height:none; }
+  #ytd .desc:not(.open)::after { content:''; position:absolute; left:0; right:0; bottom:0; height:40px; background: linear-gradient(to bottom, transparent, var(--panel)); }
+  #ytd .linkbtn { background:none; border:0; color:var(--info); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; padding:6px 0; }
+
+  /* ---- playlist list ---- */
+  #ytd .plhead { display:flex; gap:16px; align-items:center; }
+  #ytd .plhead img { width:150px; aspect-ratio:16/9; object-fit:cover; border-radius:12px; border:1px solid var(--line); flex:none; }
+  #ytd .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0 10px; }
+  #ytd .toolbar .field { max-width:320px; min-width:180px; }
+  #ytd .toolbar input[type=text] { padding:10px 12px 10px 38px; font-size:13.5px; }
+  #ytd .toolbar .field svg { left:12px; width:16px; height:16px; }
+  #ytd .counter { margin-left:auto; font-size:13px; color:var(--muted); font-weight:600; }
+  #ytd .list { border:1px solid var(--line); border-radius:14px; overflow:hidden; max-height:440px; overflow-y:auto; background:var(--panel-2); }
+  #ytd .item { display:grid; grid-template-columns: 34px 30px 96px 1fr auto; gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; transition: background .12s; }
+  #ytd .item:last-child { border-bottom:0; } #ytd .item:hover { background: color-mix(in srgb, var(--panel) 60%, var(--panel-2)); }
+  #ytd .item.off { opacity:.45; cursor:not-allowed; }
+  #ytd .item .idx { color:var(--muted-2); font-size:12px; font-weight:700; text-align:right; }
+  #ytd .item img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:#000; }
+  #ytd .item .it { font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.3; }
+  #ytd .item .ic { font-size:12px; color:var(--muted-2); margin-top:3px; }
+  #ytd .item .dur { font-size:12px; font-weight:700; color:var(--muted); background:var(--panel); border:1px solid var(--line); padding:3px 7px; border-radius:6px; }
+  #ytd .cb { width:20px; height:20px; border-radius:6px; border:2px solid var(--line-2); display:grid; place-items:center; transition: all .12s; background:var(--panel); }
+  #ytd .cb.on { background:var(--accent); border-color:var(--accent); } #ytd .cb.on::after { content:'✓'; color:#fff; font-size:12px; font-weight:900; }
+
+  /* ---- toggle ---- */
+  #ytd .toggle { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); cursor:pointer; }
+  #ytd .toggle + .toggle { margin-top:10px; }
+  #ytd .toggle .tt { font-weight:700; font-size:14px; } #ytd .toggle .td { font-size:12.5px; color:var(--muted); margin-top:2px; }
+  #ytd .sw { width:46px; height:26px; border-radius:999px; background:var(--line-2); position:relative; transition: background .15s; flex:none; }
+  #ytd .sw::after { content:''; position:absolute; width:20px; height:20px; border-radius:50%; background:#fff; top:3px; left:3px; transition: left .15s; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+  #ytd .sw.on { background:var(--ok); } #ytd .sw.on::after { left:23px; }
+  #ytd .toggle.off { opacity:.5; cursor:not-allowed; }
+
+  /* ---- summary ---- */
+  #ytd .summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap:12px; }
+  #ytd .sum { padding:14px 16px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); }
+  #ytd .sum .k { font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted-2); font-weight:800; }
+  #ytd .sum .v { font-size:15.5px; font-weight:800; margin-top:4px; word-break:break-word; }
+  #ytd .sum .v small { color:var(--muted); font-weight:600; font-size:12.5px; }
+  #ytd .mini-list { margin-top:14px; display:grid; gap:6px; max-height:200px; overflow:auto; }
+  #ytd .mini-list div { display:flex; gap:10px; align-items:center; font-size:13px; color:var(--muted); }
+  #ytd .mini-list img { width:56px; aspect-ratio:16/9; object-fit:cover; border-radius:6px; }
+  #ytd .mini-list span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---- progress ---- */
+  #ytd .bar { height:10px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
+  #ytd .bar > i { display:block; height:100%; width:0; background: linear-gradient(90deg, var(--accent), #ff8a5b); border-radius:999px; transition: width .4s ease; }
+  #ytd .bar.ok > i { background: linear-gradient(90deg, var(--ok), #4ade80); }
+  #ytd .bar.striped > i { background-image: linear-gradient(90deg, var(--accent), #ff8a5b), repeating-linear-gradient(45deg, rgba(255,255,255,.15) 0 10px, transparent 10px 20px); background-blend-mode: overlay; animation: ytdStripe 1s linear infinite; }
+  @keyframes ytdStripe { to { background-position: 0 0, 28px 0; } }
+  #ytd .cur { display:grid; grid-template-columns: 160px 1fr; gap:16px; align-items:center; margin:18px 0; }
+  #ytd .cur img { width:160px; aspect-ratio:16/9; object-fit:cover; border-radius:12px; border:1px solid var(--line); background:#000; }
+  #ytd .cur .ct { font-weight:800; font-size:15px; margin-bottom:4px; }
+  #ytd .cur .cs { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  #ytd .stats { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin-top:8px; font-weight:600; }
+  #ytd .stats b { color:var(--text); }
+  #ytd .jobs { display:grid; gap:8px; margin-top:16px; }
+  #ytd .job { display:grid; grid-template-columns: 28px 1fr auto; gap:12px; align-items:center; padding:10px 14px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); }
+  #ytd .job .jt { font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ytd .job .js { font-size:12px; color:var(--muted); margin-top:2px; }
+  #ytd .job .js.err { color:var(--err); } #ytd .job .js.warn { color:var(--warn); }
+  #ytd .job .st { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:900; background:var(--panel); border:1px solid var(--line); color:var(--muted-2); }
+  #ytd .job .st.done { background:var(--ok-soft); color:var(--ok); border-color:transparent; }
+  #ytd .job .st.error { background:var(--err-soft); color:var(--err); border-color:transparent; }
+  #ytd .job .st.run { border-color:transparent; background:var(--accent-soft); }
+  #ytd .job .st.run::after { content:''; width:12px; height:12px; border:2px solid var(--accent-soft); border-top-color:var(--accent); border-radius:50%; animation: ytdSpin .8s linear infinite; }
+  #ytd .job .jr { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  #ytd .result-head { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  #ytd .result-head .big { width:52px; height:52px; border-radius:16px; display:grid; place-items:center; font-size:26px; background:var(--ok-soft); }
+  #ytd .result-head .big.warn { background:var(--warn-soft); } #ytd .result-head .big.err { background:var(--err-soft); }
+
+  /* ---- misc ---- */
+  #ytd .empty { text-align:center; padding:30px; color:var(--muted); font-size:14px; }
+  #ytd footer { position:relative; padding:14px 22px 18px; border-top:1px solid var(--line); font-size:12px; color:var(--muted-2); display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between; }
+  #ytd .skeleton { background: linear-gradient(90deg, var(--panel-2), var(--line), var(--panel-2)); background-size:200% 100%; animation: ytdSk 1.2s infinite; border-radius:12px; }
+  @keyframes ytdSk { to { background-position:-200% 0; } }
+  #ytd .toasts { position:absolute; right:16px; bottom:16px; display:grid; gap:8px; z-index:20; max-width:min(380px, calc(100% - 32px)); }
+  #ytd .toast { padding:12px 14px; border-radius:12px; background:var(--panel); border:1px solid var(--line); box-shadow:var(--shadow); font-size:13px; display:flex; gap:10px; align-items:flex-start; animation: ytdFade .2s ease; }
+  #ytd .toast.ok { border-left:3px solid var(--ok);} #ytd .toast.err { border-left:3px solid var(--err);} #ytd .toast.info { border-left:3px solid var(--info);} #ytd .toast.warn { border-left:3px solid var(--warn);}
+  #ytd .overlay { position:absolute; inset:0; background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(4px); z-index:30; display:none; place-items:center; padding:20px; }
+  #ytd .overlay.on { display:grid; }
+  #ytd .modal { width:min(460px, 100%); background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow: var(--shadow); animation: ytdFade .2s ease; }
+  #ytd .modal h3 { font-size:17px; margin-bottom:8px; } #ytd .modal p { margin:0 0 18px; color:var(--muted); font-size:14px; }
+  #ytd .modal .actions { margin-top:0; justify-content:flex-end; }
+  #ytd .loading { text-align:center; padding:36px 20px; }
+  #ytd .loading .ring { width:46px; height:46px; margin:0 auto 14px; border-radius:50%; border:4px solid var(--accent-soft); border-top-color:var(--accent); animation: ytdSpin .8s linear infinite; }
+  #ytd .loading p { margin:0; color:var(--muted); font-size:14px; }
+  #ytd .muted { color:var(--muted); } #ytd .small { font-size:12.5px; }
+  #ytd .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  @media (max-width: 820px) {
+    #ytd .preview, #ytd .grid2 { grid-template-columns: 1fr; }
+    #ytd .cur { grid-template-columns: 1fr; } #ytd .cur img { width:100%; max-height:200px; }
+    #ytd .item { grid-template-columns: 30px 26px 80px 1fr; } #ytd .item .dur { display:none; }
+  }
+  @media (max-width: 600px) {
+    #ytd { border-radius:0; }
+    #ytd .topbar, #ytd main, #ytd .stepper, #ytd footer { padding-left:14px; padding-right:14px; }
+    #ytd .hero { padding:22px 8px 16px; } #ytd .hero h2 { font-size:22px; }
+    #ytd .input-row { flex-direction:column; } #ytd .input-row .btn { width:100%; }
+    #ytd .card { padding:16px; }
+    #ytd .step span.lbl { display:none; } #ytd .step { min-width:0; justify-content:center; padding:8px; }
+    #ytd .step.active span.lbl { display:inline; }
+    #ytd .item { grid-template-columns: 28px 1fr; } #ytd .item .idx, #ytd .item img { display:none; }
+    #ytd .user span { max-width:140px; }
+    #ytd .plhead { flex-direction:column; align-items:flex-start; } #ytd .plhead img { width:100%; }
+  }
+</style>
+
+<div id="ytd" data-theme="dark">
+  <div class="bg-glow"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      <div><h1>YT Downloader Pessoal</h1><p>Vídeos e playlists do YouTube em MP4 ou áudio, do seu jeito.</p></div>
+    </div>
+    <div class="chip" id="chipCookies"><i class="dot"></i><span>Cookies: verificando…</span></div>
+    <div class="chip" id="chipDrive"><i class="dot"></i><span>Drive</span></div>
+    <div class="user" id="userChip" title="Conta Google conectada"><div class="avatar" id="avatar">?</div><span id="userName">Conectando…</span></div>
+    <button class="icon-btn" id="themeBtn" title="Alternar tema claro/escuro" aria-label="Alternar tema">☾</button>
+  </header>
+
+  <nav class="stepper" id="stepper" aria-label="Etapas">
+    <div class="step active" data-go="1"><i class="n">1</i><span class="lbl">Link</span></div>
+    <div class="step" data-go="2"><i class="n">2</i><span class="lbl">Prévia</span></div>
+    <div class="step" data-go="3"><i class="n">3</i><span class="lbl">Formato</span></div>
+    <div class="step" data-go="4"><i class="n">4</i><span class="lbl">Confirmar</span></div>
+    <div class="step" data-go="5"><i class="n">5</i><span class="lbl">Download</span></div>
+  </nav>
+
+  <main>
+    <!-- ===== ETAPA 1: LINK ===== -->
+    <section data-step="1" class="on">
+      <div class="card hero">
+        <h2>Cole o link do YouTube</h2>
+        <p class="sub">Aceita vídeos, Shorts, playlists e páginas de canal. Vou mostrar uma prévia antes de qualquer download e perguntar cada escolha.</p>
+        <div class="input-row">
+          <div class="field">
+            <svg viewBox="0 0 24 24"><path d="M3.9 12a5 5 0 0 1 5-5h4v2h-4a3 3 0 0 0 0 6h4v2h-4a5 5 0 0 1-5-5zm7.1-1h2v2h-2v-2zm4-4h4a5 5 0 1 1 0 10h-4v-2h4a3 3 0 1 0 0-6h-4V7z"/></svg>
+            <input type="text" id="urlInput" placeholder="https://www.youtube.com/watch?v=…  ou  …/playlist?list=…" autocomplete="off" spellcheck="false">
+          </div>
+          <button class="btn" id="pasteBtn" title="Colar da área de transferência">📋 Colar</button>
+          <button class="btn primary" id="analyzeBtn">Analisar link →</button>
+        </div>
+        <p class="hint" id="urlHint">Dica: se o link tiver vídeo e playlist ao mesmo tempo, eu pergunto qual dos dois você quer.</p>
+      </div>
+
+      <details class="card" id="cookiesCard">
+        <summary>
+          <span>🍪</span><span>Cookies da sua conta (vídeos privados, +18, só para membros)</span>
+          <span class="badge" id="cookiesBadge">verificando…</span>
+          <span class="chev">▾</span>
+        </summary>
+        <div class="body">
+          <div class="grid2">
+            <div>
+              <h3>Status</h3>
+              <div id="cookiesStatus" class="note">Carregando…</div>
+              <div class="row" style="margin-top:12px">
+                <label class="btn sm" for="cookiesFile">📂 Carregar cookies.txt</label>
+                <input type="file" id="cookiesFile" accept=".txt,.json,text/plain,application/json" class="sr">
+                <button class="btn sm" id="cookiesPasteBtn">✎ Colar texto</button>
+                <button class="btn sm" id="cookiesTestBtn">🔎 Testar</button>
+                <button class="btn sm danger" id="cookiesClearBtn">Remover</button>
+              </div>
+              <div id="cookiesPasteBox" style="display:none; margin-top:12px">
+                <textarea id="cookiesText" placeholder="Cole aqui o conteúdo do cookies.txt (formato Netscape), o JSON exportado pela extensão, ou o cabeçalho Cookie: ..."></textarea>
+                <div class="row" style="margin-top:8px"><button class="btn sm primary" id="cookiesSaveTextBtn">Salvar cookies</button><button class="btn sm ghost" id="cookiesCancelTextBtn">Cancelar</button></div>
+              </div>
+              <div class="note info" id="cookiesDriveNote">Os cookies ficam salvos em <b>Meu Drive / YT_Downloader / cookies.txt</b> e são carregados automaticamente sempre que você abrir este app.</div>
+            </div>
+            <div>
+              <h3>Como exportar (leva 1 minuto)</h3>
+              <ol class="steps-help">
+                <li><span>Instale a extensão <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank" rel="noopener">Get cookies.txt LOCALLY</a> (Chrome/Edge) ou <a href="https://addons.mozilla.org/firefox/addon/cookies-txt/" target="_blank" rel="noopener">cookies.txt</a> (Firefox).</span></li>
+                <li><span>Abra <b>youtube.com</b> logado na conta que tem acesso aos vídeos.</span></li>
+                <li><span>Clique na extensão → <b>Export</b> (formato Netscape) e salve o arquivo.</span></li>
+                <li><span>Volte aqui e use <b>Carregar cookies.txt</b>. Pronto — fica salvo no Drive para as próximas vezes.</span></li>
+              </ol>
+              <div class="note warn">O Colab roda em um servidor do Google, então ele não consegue ler os cookies do seu navegador sozinho. Por isso a exportação é feita uma única vez. Os cookies dão acesso à sua conta: use só neste notebook pessoal e não os compartilhe.</div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===== ETAPA 2: PRÉVIA ===== -->
+    <section data-step="2">
+      <div id="previewArea"></div>
+      <div class="actions">
+        <button class="btn ghost" data-back="1">← Trocar link</button>
+        <div class="right"><button class="btn primary" id="toFormatBtn">Continuar →</button></div>
+      </div>
+    </section>
+
+    <!-- ===== ETAPA 3: FORMATO ===== -->
+    <section data-step="3">
+      <div class="card">
+        <h2>O que você quer baixar?</h2>
+        <p class="sub">Escolha entre o vídeo completo em MP4 ou apenas o áudio.</p>
+        <div class="choices">
+          <button class="choice" data-mode="video"><span class="ic">🎬</span><span class="t">Vídeo em MP4</span><span class="d">Vídeo + áudio, compatível com qualquer aparelho. Você escolhe a resolução.</span></button>
+          <button class="choice" data-mode="audio"><span class="ic">🎵</span><span class="t">Somente áudio</span><span class="d">MP3, M4A, OPUS, FLAC, WAV ou o áudio original. Você escolhe a qualidade.</span></button>
+        </div>
+      </div>
+      <div class="card" id="qualityCard" style="display:none"></div>
+      <div class="card" id="extrasCard" style="display:none">
+        <h3>Extras</h3>
+        <div class="toggle" id="metaToggle"><div><div class="tt">Incluir capa e metadados</div><div class="td">Grava título, canal e a miniatura como capa no arquivo (áudio) e metadados no MP4.</div></div><div class="sw on"></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" data-back="2">← Voltar</button>
+        <div class="right"><button class="btn primary" id="toConfirmBtn" disabled>Continuar →</button></div>
+      </div>
+    </section>
+
+    <!-- ===== ETAPA 4: CONFIRMAR ===== -->
+    <section data-step="4">
+      <div class="card">
+        <h2>Confirme antes de começar</h2>
+        <p class="sub">Revise o resumo. Nada é baixado até você clicar em iniciar.</p>
+        <div class="summary" id="summaryGrid"></div>
+        <div class="mini-list" id="summaryList"></div>
+      </div>
+      <div class="card">
+        <h3>Destino</h3>
+        <div class="toggle off"><div><div class="tt">Download pelo navegador</div><div class="td">Sempre ativo: ao terminar, você recebe um botão “Baixar” para cada arquivo (e um ZIP se forem vários).</div></div><div class="sw on"></div></div>
+        <div class="toggle" id="driveToggle"><div><div class="tt">Também salvar no Google Drive</div><div class="td" id="driveToggleDesc">Cópia em Meu Drive / YT_Downloader / Downloads.</div></div><div class="sw"></div></div>
+        <div id="folderBox" style="display:none; margin-top:12px">
+          <label class="small muted" for="folderInput">Nome da subpasta no Drive (opcional)</label>
+          <input type="text" class="plain" id="folderInput" placeholder="ex.: Aulas de violão" maxlength="80" style="margin-top:6px">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" data-back="3">← Voltar</button>
+        <div class="right"><button class="btn primary lg" id="startBtn">⬇ Iniciar download</button></div>
+      </div>
+    </section>
+
+    <!-- ===== ETAPA 5: DOWNLOAD ===== -->
+    <section data-step="5">
+      <div class="card" id="progressCard"></div>
+      <div class="actions" id="progressActions"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Uso pessoal · respeite os termos do YouTube e os direitos dos criadores.</span>
+    <span id="footInfo">yt-dlp</span>
+  </footer>
+
+  <div class="toasts" id="toasts"></div>
+  <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const root = document.getElementById('ytd');
+  const $ = (sel, el=root) => el.querySelector(sel);
+  const $$ = (sel, el=root) => Array.from(el.querySelectorAll(sel));
+  const IS_COLAB = !!(window.google && google.colab && google.colab.kernel);
+
+  // ---------- estado ----------
+  const S = {
+    cfg: {}, url: '', analysis: null, choice: null, selected: new Set(),
+    mode: null, height: null, audioFormat: null, audioQuality: 'best', embedMeta: true,
+    saveDrive: false, jobId: null, timer: null, step: 1, maxStep: 1, playerOn: false,
+  };
+  const STD_RES = [2160, 1440, 1080, 720, 480, 360];
+  const RES_NAMES = {4320:'8K', 2160:'4K UHD', 1440:'2K QHD', 1080:'Full HD', 720:'HD', 480:'SD', 360:'Baixa', 240:'Muito baixa', 144:'Mínima'};
+  const AUDIO_FORMATS = [
+    {id:'mp3',  t:'MP3',  d:'Universal. Toca em qualquer lugar.', q:true},
+    {id:'m4a',  t:'M4A / AAC', d:'Ótima qualidade, ideal para Apple e celulares.', q:true},
+    {id:'opus', t:'OPUS', d:'Melhor compressão. Arquivos menores.', q:true},
+    {id:'flac', t:'FLAC', d:'Sem perdas (a partir da fonte). Arquivo grande.', q:false},
+    {id:'wav',  t:'WAV',  d:'Sem compressão. Para edição.', q:false},
+    {id:'best', t:'Original', d:'Sem conversão: o áudio exatamente como o YouTube entrega (m4a/webm). Mais rápido.', q:false},
+  ];
+  const AUDIO_Q = [{id:'best', t:'Melhor', d:'VBR máxima'}, {id:'320', t:'320 kbps'}, {id:'256', t:'256 kbps'}, {id:'192', t:'192 kbps'}, {id:'128', t:'128 kbps'}, {id:'96', t:'96 kbps'}];
+
+  // ---------- ponte com o Python ----------
+  async function api(name, ...args){
+    if(!IS_COLAB){
+      if(window.__mockApi) return window.__mockApi(name, ...args);
+      throw new Error('Este app precisa ser executado dentro do Google Colab.');
+    }
+    const r = await google.colab.kernel.invokeFunction('ytd.' + name, args, {});
+    let d = r && r.data && (r.data['application/json'] ?? r.data['text/plain']);
+    if(typeof d === 'string'){ try { d = JSON.parse(d); } catch(e){ d = {ok:false, error:d}; } }
+    return d || {ok:false, error:'Sem resposta do Python. Execute a célula do app novamente.'};
+  }
+  function resize(){
+    try { if(IS_COLAB) google.colab.output.setIframeHeight(0, true, {maxHeight: 8000}); } catch(e){}
+  }
+  async function fileUrl(rel){
+    const path = rel.split('/').map(encodeURIComponent).join('/');
+    if(IS_COLAB){ const base = await google.colab.kernel.proxyPort(S.cfg.port, {cache:true}); return base.replace(/\/?$/, '/') + path; }
+    return 'http://127.0.0.1:' + S.cfg.port + '/' + path;
+  }
+  async function downloadRel(rel, viaColab){
+    try{
+      if(viaColab){
+        toast('Enviando pelo mecanismo nativo do Colab… aguarde alguns segundos.', 'info', 6000);
+        const r = await api('colab_download', rel);
+        if(!r.ok) throw new Error(r.error);
+        return;
+      }
+      const url = await fileUrl(rel);
+      const a = document.createElement('a'); a.href = url; a.download = rel.split('/').pop(); a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Download iniciado. Se nada acontecer em alguns segundos, use o botão “via Colab”.', 'ok', 6000);
+    }catch(e){ toast('Não consegui iniciar o download: ' + e.message, 'err', 7000); }
+  }
+
+  // ---------- utilidades de UI ----------
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function fmtDur(s){ if(s==null) return '—'; s=Math.round(s); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h? h+':'+String(m).padStart(2,'0') : m) + ':' + String(x).padStart(2,'0'); }
+  function fmtLong(s){ if(!s) return '—'; const h=Math.floor(s/3600), m=Math.round(s%3600/60); return h ? `${h} h ${m} min` : `${m} min`; }
+  function fmtNum(n){ if(n==null) return '—'; return new Intl.NumberFormat('pt-BR', {notation:'compact', maximumFractionDigits:1}).format(n); }
+  function fmtDate(d){ if(!d || d.length!==8) return '—'; return `${d.slice(6,8)}/${d.slice(4,6)}/${d.slice(0,4)}`; }
+  function fmtBytes(b){ if(!b) return '—'; const u=['B','KB','MB','GB']; let i=0; while(b>=1024 && i<u.length-1){ b/=1024; i++; } return b.toFixed(i?1:0)+' '+u[i]; }
+  function fmtSpeed(b){ return b ? fmtBytes(b)+'/s' : '—'; }
+  function toast(msg, type='info', ms=4200){
+    const t = document.createElement('div'); t.className = 'toast '+type;
+    t.innerHTML = `<span>${{ok:'✅', err:'⚠️', info:'ℹ️', warn:'⚠️'}[type]||''}</span><span>${esc(msg)}</span>`;
+    $('#toasts').appendChild(t); setTimeout(()=> t.remove(), ms);
+  }
+  function confirmModal({title, text, ok='Confirmar', cancel='Cancelar', danger=false}){
+    return new Promise(res => {
+      const m = $('#modal'); m.innerHTML = `<h3>${esc(title)}</h3><p>${text}</p><div class="actions"><button class="btn ghost" data-r="0">${esc(cancel)}</button><button class="btn ${danger?'danger':'primary'}" data-r="1">${esc(ok)}</button></div>`;
+      $('#overlay').classList.add('on');
+      m.onclick = e => { const b = e.target.closest('[data-r]'); if(!b) return; $('#overlay').classList.remove('on'); res(b.dataset.r === '1'); };
+    });
+  }
+  function busy(btn, on, label){
+    if(!btn) return; if(on){ btn.dataset.label = btn.innerHTML; btn.innerHTML = `<i class="spin"></i> ${esc(label||'Aguarde…')}`; btn.disabled = true; }
+    else { btn.innerHTML = btn.dataset.label || btn.innerHTML; btn.disabled = false; }
+  }
+  function goto(n){
+    S.step = n; S.maxStep = Math.max(S.maxStep, n);
+    $$('section[data-step]').forEach(s => s.classList.toggle('on', +s.dataset.step === n));
+    $$('.step').forEach(st => { const k = +st.dataset.go; st.classList.toggle('active', k===n); st.classList.toggle('done', k<n || (k<=S.maxStep && k!==n && n<5)); });
+    if(S.step === 2 && S.playerOn) {/* mantém player */}
+    root.scrollIntoView({behavior:'smooth', block:'start'}); resize();
+  }
+  $$('.step').forEach(st => st.addEventListener('click', () => { const k=+st.dataset.go; if(k < S.step && S.step !== 5 && (S.jobId==null || k>=1)) { if(S.step===5) return; goto(k); } }));
+  $$('[data-back]').forEach(b => b.addEventListener('click', () => goto(+b.dataset.back)));
+  new ResizeObserver(() => resize()).observe(root);
+
+  // tema
+  const themeBtn = $('#themeBtn');
+  function setTheme(t){ root.dataset.theme = t; themeBtn.textContent = t==='dark' ? '☾' : '☀'; try{ localStorage.setItem('ytd-theme', t);}catch(e){} }
+  themeBtn.addEventListener('click', () => setTheme(root.dataset.theme==='dark' ? 'light' : 'dark'));
+  try{ const t = localStorage.getItem('ytd-theme'); if(t) setTheme(t); }catch(e){}
+
+  // ---------- bootstrap ----------
+  function renderCookies(c){
+    const badge = $('#cookiesBadge'), chip = $('#chipCookies'), st = $('#cookiesStatus');
+    if(!c || !c.found){
+      badge.textContent = 'não carregados'; badge.className = 'badge';
+      chip.className = 'chip warn clickable'; chip.querySelector('span').textContent = 'Cookies: não carregados';
+      st.className = 'note'; st.innerHTML = 'Nenhum cookie carregado. Vídeos públicos funcionam normalmente; para vídeos privados, com restrição de idade ou só para membros, carregue os cookies da sua conta. Também ajuda se o YouTube pedir “confirme que você não é um robô”.';
+    } else {
+      const ok = c.logged_in;
+      badge.textContent = ok ? 'conta reconhecida' : 'carregados'; badge.className = 'badge ' + (ok?'ok':'warn');
+      chip.className = 'chip ' + (ok?'ok':'warn') + ' clickable'; chip.querySelector('span').textContent = ok ? 'Cookies: conta reconhecida' : 'Cookies: sem login';
+      st.className = 'note'; st.innerHTML = `<b>${c.total}</b> cookies do YouTube carregados ${c.source==='drive' ? 'automaticamente do seu <b>Drive</b>' : 'nesta sessão'} (atualizados em ${esc(c.updated)}). ` + (ok ? 'Os cookies de login da sua conta estão presentes.' : '<span style="color:var(--warn)">Não encontrei cookies de login: exporte novamente com o YouTube logado.</span>') + (c.saved_drive ? ' Salvo no Drive para as próximas vezes.' : '');
+    }
+  }
+  async function bootstrap(){
+    const r = await api('bootstrap');
+    if(!r.ok){ toast('Falha ao iniciar: ' + r.error, 'err'); return; }
+    S.cfg = r;
+    const name = r.user || 'Conta Google'; $('#userName').textContent = name; $('#avatar').textContent = (name[0]||'?').toUpperCase();
+    $('#chipDrive').className = 'chip ' + (r.drive ? 'ok' : ''); $('#chipDrive span').textContent = r.drive ? 'Drive conectado' : 'Drive não conectado';
+    $('#footInfo').textContent = `yt-dlp ${r.ytdlp}` + (r.js_runtime ? ` · ${r.js_runtime}` : '');
+    if(!r.drive){ $('#cookiesDriveNote').className = 'note warn'; $('#cookiesDriveNote').innerHTML = 'O Google Drive não foi conectado na célula de preparação, então os cookies valem só para esta sessão. Conecte o Drive para que eles sejam carregados automaticamente nas próximas vezes.'; }
+    renderCookies(r.cookies);
+    if(!r.js_runtime) toast('Nenhum runtime JavaScript (deno) detectado: alguns vídeos podem falhar. Rode a célula 1 novamente.', 'warn', 7000);
+    resize();
+  }
+
+  // ---------- cookies ----------
+  $('#chipCookies').addEventListener('click', () => { $('#cookiesCard').open = true; $('#cookiesCard').scrollIntoView({behavior:'smooth'}); });
+  $('#cookiesFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if(!f) return;
+    const text = await f.text(); e.target.value = '';
+    await saveCookies(text);
+  });
+  $('#cookiesPasteBtn').addEventListener('click', () => { $('#cookiesPasteBox').style.display = 'block'; $('#cookiesText').focus(); resize(); });
+  $('#cookiesCancelTextBtn').addEventListener('click', () => { $('#cookiesPasteBox').style.display = 'none'; resize(); });
+  $('#cookiesSaveTextBtn').addEventListener('click', async e => { const t = $('#cookiesText').value; if(!t.trim()) return toast('Cole o conteúdo dos cookies primeiro.', 'warn'); busy(e.target, true, 'Salvando'); await saveCookies(t); busy(e.target, false); $('#cookiesPasteBox').style.display='none'; $('#cookiesText').value=''; });
+  async function saveCookies(text){
+    const r = await api('save_cookies', text, true);
+    if(!r.ok) return toast(r.error, 'err', 7000);
+    renderCookies(r.cookies); toast(r.cookies.saved_drive ? 'Cookies salvos e guardados no Drive.' : 'Cookies salvos para esta sessão.', 'ok');
+  }
+  $('#cookiesTestBtn').addEventListener('click', async e => { busy(e.target, true, 'Testando'); const r = await api('test_cookies'); busy(e.target, false); if(!r.ok) return toast(r.error, 'err'); toast(r.message, r.valid ? 'ok' : 'warn', 7000); });
+  $('#cookiesClearBtn').addEventListener('click', async () => {
+    if(!await confirmModal({title:'Remover cookies?', text:'Os cookies serão apagados desta sessão e do seu Drive. Você pode carregá-los novamente depois.', ok:'Remover', danger:true})) return;
+    const r = await api('clear_cookies', true); if(r.ok){ renderCookies(r.cookies); toast('Cookies removidos.', 'ok'); }
+  });
+
+  // ---------- etapa 1: analisar ----------
+  $('#pasteBtn').addEventListener('click', async () => {
+    try { const t = await navigator.clipboard.readText(); if(t){ $('#urlInput').value = t.trim(); toast('Link colado.', 'ok', 1800); } }
+    catch(e){ toast('O navegador não permitiu ler a área de transferência aqui. Use Ctrl+V no campo.', 'warn'); $('#urlInput').focus(); }
+  });
+  $('#urlInput').addEventListener('keydown', e => { if(e.key==='Enter') $('#analyzeBtn').click(); });
+  $('#analyzeBtn').addEventListener('click', async () => {
+    const url = $('#urlInput').value.trim();
+    if(!url) return toast('Cole um link do YouTube primeiro.', 'warn');
+    if(!/youtu\.?be/i.test(url)) return toast('Isso não parece um link do YouTube.', 'warn');
+    const btn = $('#analyzeBtn'); busy(btn, true, 'Analisando…');
+    $('#previewArea').innerHTML = `<div class="card loading"><div class="ring"></div><p>Buscando informações no YouTube…<br><span class="small muted">Playlists grandes podem levar alguns segundos.</span></p></div>`;
+    goto(2); $('#toFormatBtn').disabled = true;
+    const r = await api('analyze', url); busy(btn, false);
+    if(!r.ok){
+      $('#previewArea').innerHTML = `<div class="card"><div class="result-head"><div class="big err">⚠️</div><div><h2 style="margin:0">Não consegui analisar esse link</h2><p class="sub" style="margin:4px 0 0">${esc(r.error)}</p></div></div>${/cookie/i.test(r.error) ? '<div class="note warn" style="margin-top:14px">Abra a seção <b>Cookies da sua conta</b> na etapa anterior, carregue o arquivo e tente de novo.</div>' : ''}</div>`;
+      return;
+    }
+    S.url = url; S.analysis = r; S.selected = new Set(); S.playerOn = false;
+    S.choice = (r.video && r.playlist) ? null : (r.video ? 'video' : 'playlist');
+    S.mode = null; S.height = null; S.audioFormat = null;
+    if(S.choice === 'playlist') r.playlist.items.filter(i => !i.unavailable).forEach(i => S.selected.add(i.id));
+    renderPreview();
+  });
+
+  // ---------- etapa 2: prévia ----------
+  function renderPreview(){
+    const a = S.analysis, area = $('#previewArea'); let html = '';
+    if(a.video && a.playlist){
+      html += `<div class="card"><h2>Esse link tem um vídeo e uma playlist</h2><p class="sub">O que você quer baixar?</p><div class="choices">
+        <button class="choice ${S.choice==='video'?'sel':''}" data-choice="video"><span class="ic">🎬</span><span class="t">Somente este vídeo</span><span class="d">${esc(a.video.title)}</span></button>
+        <button class="choice ${S.choice==='playlist'?'sel':''}" data-choice="playlist"><span class="ic">📃</span><span class="t">A playlist completa</span><span class="d">${esc(a.playlist.title)} · ${a.playlist.count} vídeos</span></button></div></div>`;
+    }
+    if(S.choice === 'video') html += videoCard(a.video);
+    else if(S.choice === 'playlist') html += playlistCard(a.playlist);
+    area.innerHTML = html;
+    $$('[data-choice]', area).forEach(b => b.addEventListener('click', () => { S.choice = b.dataset.choice; S.playerOn = false; if(S.choice==='playlist' && !S.selected.size) a.playlist.items.filter(i=>!i.unavailable).forEach(i=>S.selected.add(i.id)); renderPreview(); }));
+    const player = $('#player', area);
+    if(player) player.addEventListener('click', () => { if(S.playerOn) return; S.playerOn = true; player.innerHTML = `<iframe src="https://www.youtube.com/embed/${a.video.id}?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Prévia"></iframe>`; });
+    const desc = $('#desc', area); if(desc){ const b = $('#descBtn', area); b.addEventListener('click', () => { desc.classList.toggle('open'); b.textContent = desc.classList.contains('open') ? 'Mostrar menos' : 'Mostrar mais'; resize(); }); if(desc.scrollHeight <= 100) b.style.display='none'; }
+    if(S.choice === 'playlist') bindPlaylist();
+    updateContinue();
+    resize();
+  }
+  function videoCard(v){
+    const flags = [];
+    if(v.is_live) flags.push('<span class="badge err">AO VIVO</span>');
+    if(v.age_limit >= 18) flags.push('<span class="badge warn">+18 · precisa de cookies</span>');
+    if(v.availability && v.availability !== 'public') flags.push(`<span class="badge info">${esc(v.availability)}</span>`);
+    const best = v.resolutions[0];
+    return `<div class="card"><div class="preview">
+      <div class="player" id="player" title="Clique para assistir a prévia"><img src="${esc(v.thumbnail)}" alt=""><div class="play"><span><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></div><div class="dur">${fmtDur(v.duration)}</div></div>
+      <div>
+        <h3 class="vtitle">${esc(v.title)}</h3>
+        <div class="vchan">📺 <a href="${esc(v.channel_url||'#')}" target="_blank" rel="noopener">${esc(v.channel||'—')}</a></div>
+        <div class="meta">
+          <span class="badge">👁 ${fmtNum(v.views)} views</span>
+          <span class="badge">👍 ${fmtNum(v.likes)}</span>
+          <span class="badge">📅 ${fmtDate(v.upload_date)}</span>
+          ${best ? `<span class="badge acc">até ${best.height}p${best.fps>30?best.fps:''}</span>` : ''}
+          <span class="badge">🎧 ${v.audio_formats.length} faixas de áudio</span>
+          ${flags.join('')}
+        </div>
+        <div class="desc" id="desc">${esc(v.description || 'Sem descrição.')}</div>
+        <button class="linkbtn" id="descBtn">Mostrar mais</button>
+      </div></div></div>`;
+  }
+  function playlistCard(p){
+    const avail = p.items.filter(i=>!i.unavailable).length;
+    return `<div class="card">
+      <div class="plhead"><img src="${esc(p.thumbnail||'')}" alt=""><div>
+        <span class="badge acc">PLAYLIST</span>
+        <h3 class="vtitle" style="margin-top:8px">${esc(p.title)}</h3>
+        <div class="vchan">📺 ${esc(p.channel||'—')}</div>
+        <div class="meta" style="margin:0"><span class="badge">🎞 ${p.count} vídeos</span><span class="badge">⏱ ${fmtLong(p.total_duration)} no total</span>${avail<p.count ? `<span class="badge warn">${p.count-avail} indisponíveis</span>`:''}</div>
+      </div></div>
+      <div class="toolbar">
+        <div class="field"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 14 15.5l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input type="text" id="plFilter" placeholder="Filtrar por título…"></div>
+        <button class="btn sm" id="selAll">Selecionar todos</button><button class="btn sm" id="selNone">Nenhum</button><button class="btn sm" id="selInv">Inverter</button>
+        <span class="counter" id="selCount"></span>
+      </div>
+      <div class="list" id="plList">${p.items.map(itemRow).join('')}</div>
+      ${p.count >= 1000 ? '<div class="note warn">Mostrando os primeiros 1000 vídeos.</div>' : ''}
+    </div>`;
+  }
+  function itemRow(i){
+    return `<div class="item ${i.unavailable?'off':''} ${S.selected.has(i.id)?'on':''}" data-id="${esc(i.id)}" data-t="${esc((i.title||'').toLowerCase())}">
+      <div class="cb ${S.selected.has(i.id)?'on':''}"></div><div class="idx">${i.index}</div><img loading="lazy" src="${esc(i.thumbnail)}" alt="">
+      <div><div class="it">${esc(i.title)}</div><div class="ic">${esc(i.channel||'')}${i.unavailable?' · <span style="color:var(--warn)">indisponível</span>':''}</div></div>
+      <div class="dur">${fmtDur(i.duration)}</div></div>`;
+  }
+  function bindPlaylist(){
+    const p = S.analysis.playlist, list = $('#plList');
+    const refresh = () => { $$('.item', list).forEach(el => el.querying = 0); $$('.item', list).forEach(el => { const on = S.selected.has(el.dataset.id); el.classList.toggle('on', on); el.querySelector('.cb').classList.toggle('on', on); }); $('#selCount').textContent = `${S.selected.size} de ${p.count} selecionados`; updateContinue(); };
+    list.addEventListener('click', e => { const el = e.target.closest('.item'); if(!el || el.classList.contains('off')) return; const id = el.dataset.id; S.selected.has(id) ? S.selected.delete(id) : S.selected.add(id); refresh(); });
+    const visible = () => $$('.item', list).filter(el => el.style.display !== 'none' && !el.classList.contains('off'));
+    $('#selAll').addEventListener('click', () => { visible().forEach(el => S.selected.add(el.dataset.id)); refresh(); });
+    $('#selNone').addEventListener('click', () => { visible().forEach(el => S.selected.delete(el.dataset.id)); refresh(); });
+    $('#selInv').addEventListener('click', () => { visible().forEach(el => S.selected.has(el.dataset.id) ? S.selected.delete(el.dataset.id) : S.selected.add(el.dataset.id)); refresh(); });
+    $('#plFilter').addEventListener('input', e => { const q = e.target.value.toLowerCase().trim(); $$('.item', list).forEach(el => el.style.display = (!q || el.dataset.t.includes(q)) ? '' : 'none'); });
+    refresh();
+  }
+  function updateContinue(){
+    const ok = S.choice === 'video' ? !!(S.analysis && S.analysis.video && !S.analysis.video.is_live) : (S.choice === 'playlist' && S.selected.size > 0);
+    $('#toFormatBtn').disabled = !ok;
+  }
+  $('#toFormatBtn').addEventListener('click', () => { renderFormat(); goto(3); });
+
+  // ---------- etapa 3: formato ----------
+  function renderFormat(){
+    $$('[data-mode]').forEach(b => b.classList.toggle('sel', b.dataset.mode === S.mode));
+    const qc = $('#qualityCard'), ex = $('#extrasCard');
+    if(!S.mode){ qc.style.display='none'; ex.style.display='none'; $('#toConfirmBtn').disabled = true; return; }
+    qc.style.display=''; ex.style.display='';
+    if(S.mode === 'video'){
+      const single = S.choice === 'video', v = S.analysis.video;
+      let opts;
+      if(single) opts = v.resolutions.map(r => ({ id: r.height, t: `${r.height}p` + (r.fps>30 ? `<small style="font-size:12px;color:var(--muted)"> ${r.fps}fps</small>` : ''), d: [RES_NAMES[r.height], r.vcodec, r.size_label ? '~'+r.size_label : null].filter(Boolean).join(' · '), badge: r.hdr ? 'HDR' : (r.height>=2160 ? '4K' : null) }));
+      else opts = [{id:'best', t:'Melhor', d:'A maior resolução de cada vídeo'}].concat(STD_RES.map(h => ({id:h, t:`${h}p`, d: RES_NAMES[h] + ' ou a mais próxima abaixo'})));
+      if(S.height == null || !opts.some(o => String(o.id) === String(S.height))) S.height = opts[0].id;
+      qc.innerHTML = `<h2>Resolução</h2><p class="sub">${single ? 'Estas são as resoluções disponíveis para este vídeo. O tamanho é estimado.' : 'Na playlist cada vídeo pode ter resoluções diferentes: eu uso a que você escolher ou a mais próxima abaixo dela.'}</p>
+        <div class="quality">${opts.map(o => `<button class="choice ${String(o.id)===String(S.height)?'sel':''}" data-q="${o.id}"><span class="t">${o.t}${o.badge?` <span class="badge acc" style="position:static;vertical-align:middle">${o.badge}</span>`:''}</span><span class="d">${esc(o.d)}</span></button>`).join('')}</div>
+        <div class="note">Saída sempre em <b>.mp4</b>. Quando o YouTube só oferece a resolução em VP9/AV1 (comum em 1440p e 4K), o arquivo é empacotado em MP4 sem perda de qualidade.</div>`;
+      $$('[data-q]', qc).forEach(b => b.addEventListener('click', () => { S.height = isNaN(+b.dataset.q) ? b.dataset.q : +b.dataset.q; renderFormat(); }));
+    } else {
+      if(!S.audioFormat) S.audioFormat = 'mp3';
+      const f = AUDIO_FORMATS.find(x => x.id === S.audioFormat);
+      const src = S.choice === 'video' ? S.analysis.video.audio_formats : [];
+      qc.innerHTML = `<h2>Formato do áudio</h2><p class="sub">Escolha o formato do arquivo final.</p>
+        <div class="quality">${AUDIO_FORMATS.map(o => `<button class="choice ${o.id===S.audioFormat?'sel':''}" data-af="${o.id}"><span class="t">${o.t}</span><span class="d">${esc(o.d)}</span></button>`).join('')}</div>
+        ${f.q ? `<h3 style="margin-top:18px">Qualidade</h3><div class="chips">${AUDIO_Q.map(q => `<button class="chipbtn ${q.id===S.audioQuality?'sel':''}" data-aq="${q.id}">${q.t}${q.d?` · ${q.d}`:''}</button>`).join('')}</div><p class="hint">O YouTube entrega áudio de até ~130–160 kbps (ou ~256 kbps em vídeos musicais com Premium). Escolher mais que isso não melhora o som, só aumenta o arquivo.</p>` : ''}
+        ${src.length ? `<h3 style="margin-top:18px">Faixas de áudio disponíveis na fonte</h3><div class="chips">${src.map(a => `<span class="badge">${esc(a.ext)} · ${esc(a.acodec)} · ${a.abr} kbps${a.size_label?' · '+a.size_label:''}${a.lang?' · '+esc(a.lang):''}</span>`).join('')}</div>` : ''}`;
+      $$('[data-af]', qc).forEach(b => b.addEventListener('click', () => { S.audioFormat = b.dataset.af; renderFormat(); }));
+      $$('[data-aq]', qc).forEach(b => b.addEventListener('click', () => { S.audioQuality = b.dataset.aq; renderFormat(); }));
+    }
+    $('#toConfirmBtn').disabled = false; resize();
+  }
+  $$('[data-mode]').forEach(b => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderFormat(); }));
+  $('#metaToggle').addEventListener('click', () => { S.embedMeta = !S.embedMeta; $('#metaToggle .sw').classList.toggle('on', S.embedMeta); });
+  $('#toConfirmBtn').addEventListener('click', () => { renderSummary(); goto(4); });
+
+  // ---------- etapa 4: confirmar ----------
+  function selectedItems(){
+    if(S.choice === 'video'){ const v = S.analysis.video; return [{id:v.id, url:v.url, title:v.title, thumbnail:v.thumbnail}]; }
+    return S.analysis.playlist.items.filter(i => S.selected.has(i.id)).map(i => ({id:i.id, url:i.url, title:i.title, thumbnail:i.thumbnail}));
+  }
+  function qualityLabel(){
+    if(S.mode === 'video') return S.height === 'best' ? 'Melhor resolução disponível' : `${S.height}p ${RES_NAMES[S.height]||''}`.trim();
+    const f = AUDIO_FORMATS.find(x=>x.id===S.audioFormat); return f.t + (f.q ? ` · ${AUDIO_Q.find(q=>q.id===S.audioQuality).t}` : '');
+  }
+  function renderSummary(){
+    const items = selectedItems();
+    let est = null;
+    if(S.choice === 'video'){ const v = S.analysis.video; if(S.mode==='video'){ const r = v.resolutions.find(r=>r.height===S.height); est = r && r.size_label; } else { const a = v.audio_formats[0]; est = a && a.size_label ? '~'+a.size_label : null; } }
+    $('#summaryGrid').innerHTML = [
+      ['Tipo', S.mode === 'video' ? '🎬 Vídeo MP4' : '🎵 Somente áudio'],
+      ['Qualidade', qualityLabel()],
+      ['Itens', `${items.length} ${items.length===1?'vídeo':'vídeos'}` + (S.choice==='playlist' ? ` <small>de ${S.analysis.playlist.count}</small>` : '')],
+      ['Tamanho estimado', est ? est : (S.choice==='playlist' ? '<small>varia por vídeo</small>' : '—')],
+      ['Extras', S.embedMeta ? 'Capa e metadados' : 'Sem extras'],
+    ].map(([k,v]) => `<div class="sum"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    $('#summaryList').innerHTML = items.slice(0, 50).map(i => `<div><img src="${esc(i.thumbnail)}" alt=""><span>${esc(i.title)}</span></div>`).join('') + (items.length>50 ? `<div class="muted small">… e mais ${items.length-50}</div>` : '');
+    const dt = $('#driveToggle');
+    if(S.cfg.drive){ dt.classList.remove('off'); $('#driveToggleDesc').textContent = 'Cópia em Meu Drive / YT_Downloader / Downloads. Útil para playlists grandes.'; }
+    else { dt.classList.add('off'); S.saveDrive = false; $('#driveToggleDesc').textContent = 'Indisponível: o Drive não foi conectado na célula de preparação.'; }
+    $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = S.saveDrive ? 'block' : 'none';
+    if(S.choice === 'playlist' && !$('#folderInput').value) $('#folderInput').value = (S.analysis.playlist.title||'').slice(0,80);
+    resize();
+  }
+  $('#driveToggle').addEventListener('click', () => { if(!S.cfg.drive) return toast('Conecte o Google Drive na célula 1 para usar esta opção.', 'warn'); S.saveDrive = !S.saveDrive; $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = S.saveDrive ? 'block' : 'none'; resize(); });
+  $('#startBtn').addEventListener('click', async () => {
+    const items = selectedItems();
+    const ok = await confirmModal({ title: 'Iniciar download?', text: `<b>${items.length}</b> ${items.length===1?'arquivo':'arquivos'} em <b>${esc(qualityLabel())}</b>${S.saveDrive ? ', com cópia no Google Drive' : ''}. ${items.length > 20 ? 'Playlists grandes podem levar bastante tempo: mantenha esta aba aberta.' : 'Você poderá cancelar a qualquer momento.'}`, ok: 'Sim, baixar' });
+    if(!ok) return;
+    const btn = $('#startBtn'); busy(btn, true, 'Iniciando…');
+    const r = await api('start_download', { items, mode: S.mode, height: S.height, audio_format: S.audioFormat, audio_quality: S.audioQuality, embed_meta: S.embedMeta, save_drive: S.saveDrive, folder: $('#folderInput').value.trim() });
+    busy(btn, false);
+    if(!r.ok) return toast(r.error, 'err', 7000);
+    S.jobId = r.job_id; goto(5); renderProgress(null); poll();
+  });
+
+  // ---------- etapa 5: progresso ----------
+  function poll(){
+    clearInterval(S.timer);
+    S.timer = setInterval(async () => {
+      try { const j = await api('job_status', S.jobId); if(!j.ok){ clearInterval(S.timer); return toast(j.error, 'err'); } renderProgress(j); if(j.status==='finished' || j.status==='cancelled'){ clearInterval(S.timer); renderFinal(j); } }
+      catch(e){ /* kernel ocupado; tenta de novo */ }
+    }, 1000);
+  }
+  function renderProgress(j){
+    const card = $('#progressCard');
+    if(!j){ card.innerHTML = `<div class="loading"><div class="ring"></div><p>Preparando os downloads…</p></div>`; $('#progressActions').innerHTML=''; return; }
+    if(j.status === 'finished' || j.status === 'cancelled') return;
+    const total = j.items.length, done = j.items.filter(i=>['done','error','cancelled'].includes(i.status)).length;
+    const cur = j.items.find(i => i.status==='downloading' || i.status==='processing') || j.items.find(i=>i.status==='queued');
+    const overall = total ? ((done + (cur && cur.percent ? cur.percent/100 : 0)) / total * 100) : 0;
+    card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">Baixando…</h2><span class="badge acc">${done} de ${total} concluídos</span></div>
+      <div class="bar striped" style="margin-top:14px"><i style="width:${overall.toFixed(1)}%"></i></div>
+      ${cur ? `<div class="cur"><img src="${esc(cur.thumbnail||'')}" alt=""><div>
+        <div class="ct">${esc(cur.title||'')}</div><div class="cs">${esc(cur.stage||'')}</div>
+        <div class="bar ${cur.status==='processing'?'ok':''}"><i style="width:${(cur.percent||0).toFixed(1)}%"></i></div>
+        <div class="stats"><span>${(cur.percent||0).toFixed(0)}%</span>${cur.total?`<span><b>${fmtBytes(cur.downloaded)}</b> / ${fmtBytes(cur.total)}</span>`:''}${cur.speed?`<span>⚡ <b>${fmtSpeed(cur.speed)}</b></span>`:''}${cur.eta!=null?`<span>⏳ ${fmtDur(cur.eta)} restantes</span>`:''}</div>
+      </div></div>` : ''}
+      <div class="jobs">${j.items.map(jobRow).join('')}</div>`;
+    $('#progressActions').innerHTML = `<span class="small muted">Mantenha esta aba aberta até terminar.</span><div class="right"><button class="btn danger" id="cancelBtn">✕ Cancelar</button></div>`;
+    $('#cancelBtn').addEventListener('click', async () => { if(await confirmModal({title:'Cancelar downloads?', text:'O arquivo atual será descartado. Os que já terminaram continuam disponíveis.', ok:'Cancelar downloads', cancel:'Continuar baixando', danger:true})) { await api('cancel_job', S.jobId); toast('Cancelando…', 'info'); } });
+    resize();
+  }
+  function jobRow(i){
+    const st = {queued:'', downloading:'run', processing:'run', done:'done', error:'error', cancelled:''}[i.status] || '';
+    const icon = {done:'✓', error:'!', cancelled:'–', queued:'…'}[i.status] || '';
+    const sub = i.status==='error' ? i.error : (i.status==='done' ? `${i.size_label||''}${i.warning?' · aviso: '+i.warning:''}${i.drive_path?' · salvo no Drive':''}` : i.stage);
+    const act = i.status==='done' && i.rel ? `<button class="btn sm primary" data-dl="${esc(i.rel)}">⬇ Baixar</button><button class="btn sm ghost" data-dl="${esc(i.rel)}" data-via="colab" title="Alternativa se o download direto não iniciar">via Colab</button>` : (i.status==='downloading' && i.percent ? `<span class="badge">${i.percent.toFixed(0)}%</span>` : '');
+    return `<div class="job"><div class="st ${st}">${icon}</div><div><div class="jt" title="${esc(i.title)}">${esc(i.title||i.id)}</div><div class="js ${i.status==='error'?'err':(i.warning?'warn':'')}">${esc(sub||'')}</div></div><div class="jr">${act}</div></div>`;
+  }
+  function renderFinal(j){
+    const done = j.items.filter(i=>i.status==='done'), errs = j.items.filter(i=>i.status==='error'), canc = j.items.filter(i=>i.status==='cancelled');
+    const kind = errs.length && !done.length ? 'err' : (errs.length || canc.length ? 'warn' : 'ok');
+    const title = j.status==='cancelled' ? 'Download cancelado' : (kind==='ok' ? 'Tudo pronto!' : (kind==='warn' ? 'Concluído com avisos' : 'Nenhum arquivo foi baixado'));
+    const card = $('#progressCard');
+    card.innerHTML = `<div class="result-head"><div class="big ${kind}">${kind==='ok'?'🎉':(kind==='warn'?'⚠️':'❌')}</div><div><h2 style="margin:0">${title}</h2><p class="sub" style="margin:4px 0 0">${done.length} ${done.length===1?'arquivo pronto':'arquivos prontos'}${errs.length?` · ${errs.length} com erro`:''}${canc.length?` · ${canc.length} cancelados`:''}${j.save_drive && done.length ? ' · cópias salvas em Meu Drive / YT_Downloader / Downloads' : ''}</p></div></div>
+      <div class="bar ${kind==='ok'?'ok':''}" style="margin-top:16px"><i style="width:100%"></i></div>
+      ${done.length ? `<div class="note info" style="margin-top:14px">Clique em <b>Baixar</b> para salvar cada arquivo no seu computador${done.length>1?', ou use <b>Baixar tudo (.zip)</b>':''}. Os arquivos ficam neste servidor só enquanto a sessão do Colab estiver ativa.</div>` : ''}
+      <div class="jobs">${j.items.map(jobRow).join('')}</div>`;
+    $('#progressActions').innerHTML = `<button class="btn ghost" id="newBtn">↺ Novo download</button><div class="right">${done.length>1 ? '<button class="btn" id="zipBtn">🗜 Baixar tudo (.zip)</button>' : ''}${errs.length ? '<button class="btn" id="retryBtn">↻ Tentar novamente os que falharam</button>' : ''}</div>`;
+    $('#newBtn').addEventListener('click', async () => { S.jobId = null; S.playerOn=false; $('#urlInput').value=''; $('#folderInput').value=''; S.maxStep = 1; goto(1); $$('.step').forEach(s=>s.classList.remove('done')); });
+    const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel); });
+    const rb = $('#retryBtn'); if(rb) rb.addEventListener('click', async () => {
+      const items = errs.map(i => ({id:i.id, url:i.url, title:i.title, thumbnail:i.thumbnail}));
+      const r = await api('start_download', { items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder });
+      if(!r.ok) return toast(r.error, 'err'); S.jobId = r.job_id; renderProgress(null); poll();
+    });
+    resize();
+  }
+  root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b) downloadRel(b.dataset.dl, b.dataset.via === 'colab'); });
+
+  bootstrap().catch(e => toast('Erro ao iniciar: ' + e.message, 'err', 8000));
+})();
+</script>
