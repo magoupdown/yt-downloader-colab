@@ -413,6 +413,19 @@
   const $$ = (sel, el=root) => Array.from(el.querySelectorAll(sel));
   const IS_COLAB = !!(window.google && google.colab && google.colab.kernel);
 
+  // Painel de diagnóstico: qualquer erro de JavaScript aparece na tela em vez de sumir
+  function showFatal(msg){
+    let box = document.getElementById('ytdFatal');
+    if(!box){
+      box = document.createElement('div'); box.id = 'ytdFatal';
+      box.style.cssText = 'position:relative;z-index:50;margin:16px 22px 0;padding:14px 16px;border-radius:12px;border-left:4px solid #ef4444;background:rgba(239,68,68,.12);font-size:13px;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Consolas,monospace';
+      root.insertBefore(box, root.querySelector('nav'));
+    }
+    box.textContent = '⚠️ Erro na interface (copie e envie esta mensagem):\n' + msg;
+  }
+  window.addEventListener('error', e => showFatal((e.message || 'erro') + (e.filename ? `\n${e.filename}:${e.lineno}` : '')));
+  window.addEventListener('unhandledrejection', e => showFatal(String(e.reason && (e.reason.stack || e.reason.message) || e.reason)));
+
   // ---------- estado ----------
   const S = {
     cfg: {}, url: '', analysis: null, choice: null, selected: new Set(),
@@ -790,6 +803,6 @@
   }
   root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b) downloadRel(b.dataset.dl, b.dataset.via === 'colab'); });
 
-  bootstrap().catch(e => toast('Erro ao iniciar: ' + e.message, 'err', 8000));
+  bootstrap().catch(e => { toast('Erro ao iniciar: ' + e.message, 'err', 8000); showFatal('Falha ao chamar o Python (ytd.bootstrap). Verifique se a célula 2 terminou sem erro.\n' + (e.stack || e.message)); });
 })();
 </script>

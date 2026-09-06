@@ -120,7 +120,20 @@ print('✅ Pasta de downloads temporários limpa.')
 def indent(code, n=4):
     return '\n'.join((' ' * n + l) if l.strip() else l for l in code.splitlines())
 
-app_cell = APP_PY_HEAD + indent(backend) + '\n\n' + indent('APP_HTML = r"""' + app_html + '"""\n_display(_HTML(APP_HTML))')
+APP_PY_TAIL = r'''
+if _pronto:
+    try:
+        _display(_HTML(APP_HTML))
+    except Exception as _e:
+        import traceback as _tb
+        _erro('Falha ao abrir o aplicativo. Copie a mensagem abaixo e envie para suporte.')
+        print(_tb.format_exc())
+'''
+# corpo do backend protegido: qualquer erro Python aparece na tela em vez de sumir
+app_cell = (APP_PY_HEAD + '    try:\n' + indent(backend, 8) + '\n\n' + indent('APP_HTML = r"""' + app_html + '"""', 8)
+            + '\n    except Exception as _e:\n        import traceback as _tb\n        _pronto = False\n'
+            + '        _erro(\'Erro ao preparar o aplicativo. Copie a mensagem abaixo e envie para suporte.\')\n'
+            + '        print(_tb.format_exc())\n' + APP_PY_TAIL)
 
 def cell(kind, src, **meta):
     lines = src.splitlines(keepends=True)
