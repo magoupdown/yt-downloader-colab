@@ -4,7 +4,7 @@
 #  google.colab.output.register_callback / kernel.invokeFunction
 # ============================================================
 import os, re, json, time, uuid, shutil, threading, socket, http.server, socketserver
-import urllib.parse, traceback
+import urllib.parse, traceback, queue
 
 import yt_dlp
 from IPython.display import JSON
@@ -395,6 +395,12 @@ def _build_opts(job, item_state, mode, height, audio_format, audio_quality, embe
         'postprocessor_hooks': [lambda d: _pp_hook(d, job, item_state)],
         'postprocessors': [],
     })
+    trim = job.get('trim')
+    if trim:
+        # Recorte por tempo: o arquivo completo é baixado (rápido, com progresso) e cortado
+        # depois com ffmpeg em _cut_clip. Capa/metadados são aplicados no corte, não aqui.
+        opts['outtmpl'] = os.path.join(out_dir, '_completo_%(id)s.%(ext)s')
+        embed_meta = False
     if mode == 'audio':
         opts['format'] = 'ba/b'
         pp = {'key': 'FFmpegExtractAudio', 'preferredcodec': audio_format}
@@ -418,6 +424,60 @@ def _build_opts(job, item_state, mode, height, audio_format, audio_quality, embe
             opts['postprocessors'].append({'key': 'FFmpegMetadata', 'add_metadata': True})
     return opts
 
+def _hms(sec):
+    sec = int(round(sec)); h, m, s = sec // 3600, sec % 3600 // 60, sec % 60
+    return f'{h}:{m:02d}:{s:02d}' if h else f'{m}:{s:02d}'
+
+def _cut_clip(job, st, src_path, info, out_dir):
+    """Corta [start, end] do arquivo completo com ffmpeg, mostrando progresso.
+    Vídeo: recodifica (H.264) para o corte ser exato no tempo pedido. Áudio: cópia direta (sem perda)."""
+    import subprocess
+    trim = job['trim']; start, end = float(trim['start']), float(trim['end'])
+    dur_total = float((info or {}).get('duration') or 0)
+    if dur_total and start >= dur_total:
+        raise RuntimeError(f'O início do trecho ({_hms(start)}) passa da duração do vídeo ({_hms(dur_total)}).')
+    if dur_total:
+        end = min(end, dur_total)
+    length = end - start
+    if length < 0.5:
+        raise RuntimeError('O trecho ficou curto demais depois de ajustar ao tamanho do vídeo.')
+    title = yt_dlp.utils.sanitize_filename((info or {}).get('title') or st.get('title') or 'video', restricted=False)[:140]
+    ext = os.path.splitext(src_path)[1].lstrip('.') or ('mp4' if job['mode'] == 'video' else 'm4a')
+    tag = f"(trecho {_hms(start).replace(':', '.')}-{_hms(end).replace(':', '.')})"
+    dst = os.path.join(out_dir, f"{title} [{(info or {}).get('id') or st.get('id')}] {tag}.{ext}")
+    meta = ['-metadata', f"title={(info or {}).get('title') or ''} {tag}", '-metadata', f"artist={(info or {}).get('uploader') or (info or {}).get('channel') or ''}",
+            '-metadata', f"comment={(info or {}).get('webpage_url') or ''}"]
+    if job['mode'] == 'video':
+        codec = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+    else:
+        codec = ['-c', 'copy']
+    cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1',
+           '-ss', f'{start:.3f}', '-i', src_path, '-t', f'{length:.3f}', '-map', '0', '-map_metadata', '-1'] + meta + codec + [dst]
+    st.update({'status': 'processing', 'stage': 'Cortando trecho…' + (' (recodificando vídeo)' if job['mode'] == 'video' else ''), 'percent': 0})
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors='ignore')
+    err_lines = []
+    try:
+        for line in proc.stdout:
+            if job.get('cancel'):
+                proc.kill(); raise yt_dlp.utils.DownloadCancelled('Cancelado pelo usuário')
+            if line.startswith('out_time_ms='):
+                try:
+                    done = int(line.split('=')[1]) / 1_000_000
+                    st['percent'] = max(0, min(99, done / length * 100))
+                except ValueError:
+                    pass
+        proc.wait()
+        err_lines = proc.stderr.read().strip().splitlines()
+    finally:
+        try: proc.stdout.close(); proc.stderr.close()
+        except Exception: pass
+    if proc.returncode != 0 or not os.path.exists(dst) or os.path.getsize(dst) == 0:
+        raise RuntimeError('Falha ao cortar o trecho: ' + (err_lines[-1] if err_lines else f'ffmpeg retornou {proc.returncode}'))
+    try: os.remove(src_path)
+    except OSError: pass
+    st['percent'] = 100
+    return dst
+
 def _progress_hook(d, job, st):
     if job.get('cancel'):
         raise yt_dlp.utils.DownloadCancelled('Cancelado pelo usuário')
@@ -426,10 +486,11 @@ def _progress_hook(d, job, st):
         done = d.get('downloaded_bytes') or 0
         info = d.get('info_dict') or {}
         stream = 'áudio' if (info.get('vcodec') in (None, 'none')) else 'vídeo'
+        trim = job.get('trim')
         st.update({
             'status': 'downloading', 'percent': (done / total * 100) if total else 0,
             'downloaded': done, 'total': total, 'speed': d.get('speed') or 0, 'eta': d.get('eta'),
-            'stage': f'Baixando {stream}…',
+            'stage': (f'Baixando {stream} completo para cortar…' if trim else f'Baixando {stream}…'),
         })
     elif d['status'] == 'finished':
         st.update({'percent': 100, 'stage': 'Download concluído, processando…'})
@@ -483,6 +544,8 @@ def _run_job(job_id):
                 raise RuntimeError(logger.errors[-1] if logger.errors else 'O arquivo final não foi encontrado após o download.')
             if logger.errors:
                 st['warning'] = _friendly_error(logger.errors[-1])
+            if job.get('trim'):
+                path = _cut_clip(job, st, path, info, out_dir)
             size = os.path.getsize(path)
             drive_path = None
             if job.get('save_drive') and _drive_on():
@@ -503,11 +566,60 @@ def _run_job(job_id):
     job['status'] = 'cancelled' if job.get('cancel') else 'finished'
     job['finished_at'] = time.time()
 
+# ---------- fila: os downloads rodam um por vez, em ordem de chegada ----------
+JOB_QUEUE = queue.Queue()
+
+def _worker():
+    while True:
+        job_id = JOB_QUEUE.get()
+        try:
+            job = STATE['jobs'].get(job_id)
+            if job and job.get('cancel'):
+                for st in job['items']:
+                    st.update({'status': 'cancelled', 'stage': 'Cancelado'})
+                job['status'] = 'cancelled'; job['finished_at'] = time.time()
+            elif job:
+                _run_job(job_id)
+        except Exception as e:
+            job = STATE['jobs'].get(job_id)
+            if job:
+                for st in job['items']:
+                    if st['status'] in ('queued', 'downloading', 'processing'):
+                        st.update({'status': 'error', 'stage': 'Erro', 'error': _friendly_error(str(e))})
+                job['status'] = 'finished'; job['finished_at'] = time.time()
+        finally:
+            JOB_QUEUE.task_done()
+
+def _ensure_worker():
+    w = STATE.get('worker')
+    if not w or not w.is_alive():
+        w = threading.Thread(target=_worker, daemon=True)
+        w.start()
+        STATE['worker'] = w
+
+def _parse_trim(trim, items):
+    """Valida o recorte {start, end} em segundos. Só para um vídeo por vez."""
+    if not trim:
+        return None
+    if len(items) != 1:
+        raise ValueError('O recorte por tempo só funciona com um vídeo por vez.')
+    try:
+        start = max(0.0, float(trim.get('start') or 0))
+        end = float(trim.get('end'))
+    except Exception:
+        raise ValueError('Tempos do recorte inválidos. Use o formato mm:ss ou hh:mm:ss.')
+    if end <= start:
+        raise ValueError('O fim do trecho precisa ser maior que o início.')
+    if end - start < 1:
+        raise ValueError('O trecho precisa ter pelo menos 1 segundo.')
+    return {'start': start, 'end': end}
+
 def cb_start_download(payload):
     try:
         items = payload.get('items') or []
         if not items:
             return JSON({'ok': False, 'error': 'Nenhum vídeo selecionado.'})
+        trim = _parse_trim(payload.get('trim'), items)
         job_id = uuid.uuid4().hex[:10]
         folder = re.sub(r'[^\w\s.-]', '', (payload.get('folder') or ''))[:80].strip()
         job = {
@@ -515,13 +627,36 @@ def cb_start_download(payload):
             'mode': payload.get('mode', 'video'), 'height': payload.get('height', 'best'),
             'audio_format': payload.get('audio_format', 'mp3'), 'audio_quality': payload.get('audio_quality', 'best'),
             'embed_meta': bool(payload.get('embed_meta', True)), 'save_drive': bool(payload.get('save_drive')),
-            'folder': folder, 'completed': 0,
+            'folder': folder, 'completed': 0, 'trim': trim,
+            'label': str(payload.get('label') or '')[:120],
             'items': [{'id': it.get('id'), 'url': it.get('url'), 'title': it.get('title'), 'thumbnail': it.get('thumbnail'),
                        'status': 'queued', 'percent': 0, 'stage': 'Na fila'} for it in items],
         }
         STATE['jobs'][job_id] = job
-        threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
-        return JSON({'ok': True, 'job_id': job_id})
+        ahead = sum(1 for j in STATE['jobs'].values() if j['id'] != job_id and j['status'] in ('queued', 'running'))
+        JOB_QUEUE.put(job_id)
+        _ensure_worker()
+        return JSON({'ok': True, 'job_id': job_id, 'ahead': ahead})
+    except Exception as e:
+        return JSON({'ok': False, 'error': _friendly_error(str(e))})
+
+def cb_jobs_list():
+    """Resumo de todas as tarefas para a barra de fila."""
+    try:
+        out = []
+        for j in sorted(STATE['jobs'].values(), key=lambda x: x['created']):
+            cur = next((s for s in j['items'] if s['status'] in ('downloading', 'processing')), None)
+            done = sum(1 for s in j['items'] if s['status'] == 'done')
+            errs = sum(1 for s in j['items'] if s['status'] == 'error')
+            finished = sum(1 for s in j['items'] if s['status'] in ('done', 'error', 'cancelled'))
+            total = len(j['items'])
+            overall = ((finished + ((cur['percent'] or 0) / 100 if cur else 0)) / total * 100) if total else 0
+            out.append({'id': j['id'], 'status': j['status'], 'label': j.get('label') or '', 'mode': j['mode'],
+                        'total': total, 'done': done, 'errors': errs, 'finished': finished, 'percent': round(overall, 1),
+                        'current': (cur or {}).get('title'), 'stage': (cur or {}).get('stage'),
+                        'first_title': j['items'][0]['title'] if j['items'] else '', 'thumbnail': j['items'][0].get('thumbnail') if j['items'] else None,
+                        'created': j['created'], 'trim': j.get('trim')})
+        return JSON({'ok': True, 'jobs': out, 'active': any(j['status'] in ('queued', 'running') for j in STATE['jobs'].values())})
     except Exception as e:
         return JSON({'ok': False, 'error': str(e)})
 
@@ -532,6 +667,9 @@ def cb_job_status(job_id):
     view = {k: v for k, v in job.items() if k != 'cancel'}
     view['ok'] = True
     view['total'] = len(job['items'])
+    # quantas tarefas ainda estão na frente desta na fila
+    view['ahead'] = sum(1 for j in STATE['jobs'].values()
+                        if j['id'] != job_id and j['status'] in ('queued', 'running') and j['created'] < job['created']) if job['status'] == 'queued' else 0
     return JSON(view)
 
 def cb_cancel_job(job_id):
@@ -623,7 +761,7 @@ def _register(name, fn):
 for _n, _f in {
     'bootstrap': cb_bootstrap, 'save_cookies': cb_save_cookies, 'clear_cookies': cb_clear_cookies,
     'test_cookies': cb_test_cookies, 'analyze': cb_analyze, 'start_download': cb_start_download,
-    'job_status': cb_job_status, 'cancel_job': cb_cancel_job, 'zip_job': cb_zip_job,
+    'job_status': cb_job_status, 'cancel_job': cb_cancel_job, 'zip_job': cb_zip_job, 'jobs_list': cb_jobs_list,
     'cleanup': cb_cleanup, 'colab_download': cb_colab_download,
 }.items():
     _register(_n, _f)

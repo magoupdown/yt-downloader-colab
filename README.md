@@ -12,6 +12,8 @@ Notebook do Google Colab com **interface de página web** para baixar vídeos e 
 - 👁 **Prévia** antes de baixar: miniatura clicável (player embutido), título, canal, duração, views, data e descrição
 - 🧭 **Assistente em 5 etapas** (Link → Prévia → Formato → Confirmar → Download): cada escolha é perguntada e nada é baixado sem confirmação
 - 🔐 **Login Google obrigatório** (célula 1) e **cookies da conta** para vídeos privados, +18 ou só para membros, com persistência automática no Drive
+- ✂️ **Recorte por tempo** (vídeo único): escolha início e fim e receba só o trecho, com corte exato, em vídeo ou áudio
+- 📥 **Fila contínua**: enquanto um download roda, cole outro link e adicione à fila; uma barra mostra todas as tarefas em andamento e concluídas
 - 📊 Progresso em tempo real (velocidade, ETA, etapa de conversão), cancelamento, botão "Baixar" por arquivo, ZIP de tudo, cópia opcional para o Google Drive
 - 📱 Responsivo, tema claro/escuro, mensagens de erro traduzidas e com orientação do que fazer
 

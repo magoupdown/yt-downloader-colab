@@ -55,6 +55,22 @@
   #ytd .step.active .n { background:var(--accent); border-color:transparent; color:#fff; }
   #ytd .step.done:hover { background:var(--panel); }
 
+  /* ---- fila ---- */
+  #ytd .queuebar { position:relative; margin:16px 22px 0; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background: color-mix(in srgb, var(--panel) 85%, transparent); box-shadow: var(--shadow); }
+  #ytd .queuebar .qhead { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-weight:800; font-size:13.5px; margin-bottom:8px; }
+  #ytd .qlist { display:grid; gap:6px; }
+  #ytd .qjob { display:grid; grid-template-columns: 26px 1fr 130px auto; gap:10px; align-items:center; padding:8px 10px; border-radius:10px; background:var(--panel-2); border:1px solid var(--line); font-size:12.5px; }
+  #ytd .qjob.viewing { border-color:var(--accent); }
+  #ytd .qjob .ql { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ytd .qjob .qs { color:var(--muted); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+  #ytd .qjob .bar { height:6px; }
+  #ytd .qjob .st { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:900; background:var(--panel); border:1px solid var(--line); color:var(--muted-2); }
+  #ytd .qjob .st.done { background:var(--ok-soft); color:var(--ok); border-color:transparent; }
+  #ytd .qjob .st.warn { background:var(--warn-soft); color:var(--warn); border-color:transparent; }
+  #ytd .qjob .st.run { border-color:transparent; background:var(--accent-soft); }
+  #ytd .qjob .st.run::after { content:''; width:11px; height:11px; border:2px solid var(--accent-soft); border-top-color:var(--accent); border-radius:50%; animation: ytdSpin .8s linear infinite; }
+  @media (max-width: 600px) { #ytd .queuebar { margin:12px 14px 0; } #ytd .qjob { grid-template-columns: 24px 1fr auto; } #ytd .qjob .bar { display:none; } }
+
   /* ---- main ---- */
   #ytd main { position:relative; padding:20px 22px 26px; }
   #ytd section[data-step] { display:none; animation: ytdFade .25s ease; }
@@ -285,6 +301,12 @@
     <div class="step" data-go="5"><i class="n">5</i><span class="lbl">Download</span></div>
   </nav>
 
+  <!-- Fila de downloads: visível em todas as etapas enquanto houver tarefas -->
+  <div class="queuebar" id="queueBar" hidden>
+    <div class="qhead"><span>📥 Fila de downloads</span><span class="badge acc" id="queueCount">0</span><span class="small muted" id="queueHint">Você pode colar outro link enquanto estes baixam.</span></div>
+    <div class="qlist" id="queueList"></div>
+  </div>
+
   <main>
     <!-- ===== ETAPA 1: LINK ===== -->
     <section data-step="1" class="on">
@@ -386,6 +408,17 @@
         <p class="sub">Revise o resumo. Nada é baixado até você clicar em iniciar.</p>
         <div class="summary" id="summaryGrid"></div>
         <div class="mini-list" id="summaryList"></div>
+      </div>
+      <div class="card" id="trimCard" style="display:none">
+        <div class="toggle" id="trimToggle"><div><div class="tt">✂️ Baixar só um trecho</div><div class="td">Escolha o início e o fim. O corte é exato no tempo pedido e funciona para vídeo e áudio. O arquivo completo é baixado e cortado em seguida; em vídeo, o trecho é recodificado, então trechos longos em 4K demoram mais. O trecho não recebe capa embutida.</div></div><div class="sw"></div></div>
+        <div id="trimBox" style="display:none; margin-top:12px">
+          <div class="row" style="align-items:flex-end">
+            <div><label class="small muted" for="trimStart">Início</label><input type="text" class="plain" id="trimStart" placeholder="0:00" inputmode="numeric" style="width:130px;margin-top:6px"></div>
+            <div><label class="small muted" for="trimEnd">Fim</label><input type="text" class="plain" id="trimEnd" placeholder="mm:ss" inputmode="numeric" style="width:130px;margin-top:6px"></div>
+            <div class="small" id="trimInfo" style="padding-bottom:12px"></div>
+          </div>
+          <p class="hint" style="margin-top:8px">Formatos aceitos: <b>1:23</b> (min:seg), <b>1:02:03</b> (h:min:seg) ou só segundos. Deixe o fim vazio para ir até o final. Duração do vídeo: <b id="trimTotal">—</b>.</p>
+        </div>
       </div>
       <div class="card">
         <h3>Destino</h3>
@@ -531,7 +564,8 @@
     if(S.step === 2 && S.playerOn) {/* mantém player */}
     root.scrollIntoView({behavior:'smooth', block:'start'}); resize();
   }
-  $$('.step').forEach(st => st.addEventListener('click', () => { const k=+st.dataset.go; if(k < S.step && S.step !== 5 && (S.jobId==null || k>=1)) { if(S.step===5) return; goto(k); } }));
+  // etapas anteriores ficam clicáveis, inclusive durante um download (a fila continua rodando)
+  $$('.step').forEach(st => st.addEventListener('click', () => { const k=+st.dataset.go; if(k < S.step) goto(k); }));
   $$('[data-back]').forEach(b => b.addEventListener('click', () => goto(+b.dataset.back)));
   new ResizeObserver(() => resize()).observe(root);
 
@@ -566,6 +600,8 @@
     renderCookies(r.cookies);
     if(!r.js_runtime) toast('Nenhum runtime JavaScript (deno) detectado: alguns vídeos podem falhar. Rode a célula 1 novamente.', 'warn', 7000);
     resize();
+    // se o app foi reaberto com downloads em andamento, a fila reaparece
+    try { startQueuePolling(); } catch(e){}
   }
 
   // ---------- cookies ----------
@@ -612,6 +648,7 @@
       return;
     }
     S.url = url; S.analysis = r; S.selected = new Set(); S.playerOn = false;
+    S.trim = {on:false}; $('#trimStart').value = ''; $('#trimEnd').value = '';
     S.choice = (r.video && r.playlist) ? null : (r.video ? 'video' : 'playlist');
     S.mode = null; S.height = null; S.audioFormat = null;
     if(S.choice === 'playlist') r.playlist.items.filter(i => !i.unavailable).forEach(i => S.selected.add(i.id));
@@ -745,17 +782,62 @@
     if(S.mode === 'video') return S.height === 'best' ? 'Melhor resolução disponível' : `${S.height}p ${RES_NAMES[S.height]||''}`.trim();
     const f = AUDIO_FORMATS.find(x=>x.id===S.audioFormat); return f.t + (f.q ? ` · ${AUDIO_Q.find(q=>q.id===S.audioQuality).t}` : '');
   }
-  function renderSummary(){
+  // ---------- recorte por tempo (só para um vídeo) ----------
+  S.trim = {on:false};
+  function parseTime(s){
+    s = String(s||'').trim(); if(!s) return null;
+    if(/^\d+([.,]\d+)?$/.test(s)) return parseFloat(s.replace(',', '.'));
+    const p = s.split(':'); if(p.length > 3 || p.some(x => !/^\d{1,2}([.,]\d+)?$/.test(x))) return null;
+    return p.reduce((a, x) => a*60 + parseFloat(x.replace(',', '.')), 0);
+  }
+  function trimState(){
+    const dur = (S.analysis && S.analysis.video && S.analysis.video.duration) || 0;
+    const sRaw = $('#trimStart').value.trim(), eRaw = $('#trimEnd').value.trim();
+    const st = sRaw ? parseTime(sRaw) : 0, en = eRaw ? parseTime(eRaw) : (dur || null);
+    if(st == null || en == null) return {ok:false, msg: eRaw || sRaw ? 'Tempo inválido. Use mm:ss (ex.: 1:23).' : 'Informe o fim do trecho.'};
+    if(dur && st >= dur) return {ok:false, msg:`O início precisa ser menor que ${fmtDur(dur)}.`};
+    if(dur && en > dur + 1) return {ok:false, msg:`O fim não pode passar de ${fmtDur(dur)}.`};
+    if(en <= st) return {ok:false, msg:'O fim precisa ser maior que o início.'};
+    if(en - st < 1) return {ok:false, msg:'O trecho precisa ter pelo menos 1 segundo.'};
+    return {ok:true, start: st, end: dur ? Math.min(en, dur) : en};
+  }
+  function refreshTrim(){
+    const info = $('#trimInfo');
+    if(!S.trim.on){ info.innerHTML = ''; renderSummaryGrid(); return; }
+    const t = trimState();
+    info.innerHTML = t.ok ? `<span class="muted">Trecho de <b>${fmtDur(t.start)}</b> a <b>${fmtDur(t.end)}</b> · duração <b>${fmtDur(t.end - t.start)}</b></span>` : `<span style="color:var(--err)">${esc(t.msg)}</span>`;
+    renderSummaryGrid();
+  }
+  $('#trimToggle').addEventListener('click', () => { S.trim.on = !S.trim.on; $('#trimToggle .sw').classList.toggle('on', S.trim.on); $('#trimBox').style.display = S.trim.on ? 'block' : 'none'; if(S.trim.on) $('#trimEnd').focus(); refreshTrim(); resize(); });
+  $('#trimStart').addEventListener('input', refreshTrim); $('#trimEnd').addEventListener('input', refreshTrim);
+  function currentTrim(){ if(S.choice !== 'video' || !S.trim.on) return null; const t = trimState(); return t.ok ? {start: t.start, end: t.end} : {invalid: t.msg}; }
+
+  function renderSummaryGrid(){
     const items = selectedItems();
     let est = null;
     if(S.choice === 'video'){ const v = S.analysis.video; if(S.mode==='video'){ const r = v.resolutions.find(r=>r.height===S.height); est = r && r.size_label; } else { const a = v.audio_formats[0]; est = a && a.size_label ? '~'+a.size_label : null; } }
-    $('#summaryGrid').innerHTML = [
+    const trim = currentTrim();
+    const rows = [
       ['Tipo', S.mode === 'video' ? '🎬 Vídeo MP4' : '🎵 Somente áudio'],
       ['Qualidade', qualityLabel()],
       ['Itens', `${items.length} ${items.length===1?'vídeo':'vídeos'}` + (S.choice==='playlist' ? ` <small>de ${S.analysis.playlist.count}</small>` : '')],
-      ['Tamanho estimado', est ? est : (S.choice==='playlist' ? '<small>varia por vídeo</small>' : '—')],
+      ['Tamanho estimado', trim ? '<small>proporcional ao trecho</small>' : (est ? est : (S.choice==='playlist' ? '<small>varia por vídeo</small>' : '—'))],
       ['Extras', S.embedMeta ? 'Capa e metadados' : 'Sem extras'],
-    ].map(([k,v]) => `<div class="sum"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    ];
+    if(trim) rows.splice(2, 0, ['Trecho', trim.invalid ? `<span style="color:var(--err)">inválido</span>` : `${fmtDur(trim.start)} → ${fmtDur(trim.end)} <small>(${fmtDur(trim.end - trim.start)})</small>`]);
+    $('#summaryGrid').innerHTML = rows.map(([k,v]) => `<div class="sum"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  }
+  function renderSummary(){
+    const items = selectedItems();
+    const isVideo = S.choice === 'video';
+    $('#trimCard').style.display = isVideo ? '' : 'none';
+    if(!isVideo) { S.trim.on = false; $('#trimToggle .sw').classList.remove('on'); $('#trimBox').style.display = 'none'; }
+    else {
+      // sincroniza o interruptor com o estado (ele é zerado a cada novo link analisado)
+      $('#trimToggle .sw').classList.toggle('on', !!S.trim.on); $('#trimBox').style.display = S.trim.on ? 'block' : 'none';
+      $('#trimTotal').textContent = fmtDur(S.analysis.video.duration); $('#trimEnd').placeholder = fmtDur(S.analysis.video.duration); refreshTrim();
+    }
+    renderSummaryGrid();
     $('#summaryList').innerHTML = items.slice(0, 50).map(i => `<div><img src="${esc(i.thumbnail)}" alt=""><span>${esc(i.title)}</span></div>`).join('') + (items.length>50 ? `<div class="muted small">… e mais ${items.length-50}</div>` : '');
     const dt = $('#driveToggle');
     if(S.cfg.drive){ dt.classList.remove('off'); $('#driveToggleDesc').textContent = 'Cópia em Meu Drive / YT_Downloader / Downloads. Útil para playlists grandes.'; }
@@ -767,13 +849,18 @@
   $('#driveToggle').addEventListener('click', () => { if(!S.cfg.drive) return toast('Conecte o Google Drive na célula 1 para usar esta opção.', 'warn'); S.saveDrive = !S.saveDrive; $('#driveToggle .sw').classList.toggle('on', S.saveDrive); $('#folderBox').style.display = S.saveDrive ? 'block' : 'none'; resize(); });
   $('#startBtn').addEventListener('click', async () => {
     const items = selectedItems();
-    const ok = await confirmModal({ title: 'Iniciar download?', text: `<b>${items.length}</b> ${items.length===1?'arquivo':'arquivos'} em <b>${esc(qualityLabel())}</b>${S.saveDrive ? ', com cópia no Google Drive' : ''}. ${items.length > 20 ? 'Playlists grandes podem levar bastante tempo: mantenha esta aba aberta.' : 'Você poderá cancelar a qualquer momento.'}`, ok: 'Sim, baixar' });
+    const trim = currentTrim();
+    if(trim && trim.invalid) return toast('Recorte inválido: ' + trim.invalid, 'warn', 6000);
+    const trimTxt = trim ? `, só o trecho de <b>${fmtDur(trim.start)}</b> a <b>${fmtDur(trim.end)}</b>` : '';
+    const ok = await confirmModal({ title: 'Iniciar download?', text: `<b>${items.length}</b> ${items.length===1?'arquivo':'arquivos'} em <b>${esc(qualityLabel())}</b>${trimTxt}${S.saveDrive ? ', com cópia no Google Drive' : ''}. ${items.length > 20 ? 'Playlists grandes podem levar bastante tempo: mantenha esta aba aberta.' : 'Você poderá cancelar a qualquer momento e adicionar outros links à fila enquanto baixa.'}`, ok: 'Sim, baixar' });
     if(!ok) return;
     const btn = $('#startBtn'); busy(btn, true, 'Iniciando…');
-    const r = await api('start_download', { items, mode: S.mode, height: S.height, audio_format: S.audioFormat, audio_quality: S.audioQuality, embed_meta: S.embedMeta, save_drive: S.saveDrive, folder: $('#folderInput').value.trim() });
+    const label = `${items.length} ${items.length===1?'vídeo':'vídeos'} · ${qualityLabel()}` + (trim ? ` · trecho ${fmtDur(trim.start)}–${fmtDur(trim.end)}` : '');
+    const r = await api('start_download', { items, mode: S.mode, height: S.height, audio_format: S.audioFormat, audio_quality: S.audioQuality, embed_meta: S.embedMeta, save_drive: S.saveDrive, folder: $('#folderInput').value.trim(), trim: trim ? {start: trim.start, end: trim.end} : null, label });
     busy(btn, false);
     if(!r.ok) return toast(r.error, 'err', 7000);
-    S.jobId = r.job_id; goto(5); renderProgress(null); poll();
+    if(r.ahead > 0) toast(`Adicionado à fila: ${r.ahead} ${r.ahead===1?'download na frente':'downloads na frente'}. Ele começa automaticamente.`, 'info', 6000);
+    S.jobId = r.job_id; goto(5); renderProgress(null); poll(); startQueuePolling();
   });
 
   // ---------- etapa 5: progresso ----------
@@ -791,15 +878,20 @@
     const total = j.items.length, done = j.items.filter(i=>['done','error','cancelled'].includes(i.status)).length;
     const cur = j.items.find(i => i.status==='downloading' || i.status==='processing') || j.items.find(i=>i.status==='queued');
     const overall = total ? ((done + (cur && cur.percent ? cur.percent/100 : 0)) / total * 100) : 0;
-    card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">Baixando…</h2><span class="badge acc">${done} de ${total} concluídos</span></div>
-      <div class="bar striped" style="margin-top:14px"><i style="width:${overall.toFixed(1)}%"></i></div>
+    const waiting = j.status === 'queued';
+    const headTitle = waiting ? '⏳ Na fila…' : 'Baixando…';
+    const headNote = waiting ? `<p class="sub" style="margin:6px 0 0">Aguardando ${j.ahead||0} ${j.ahead===1?'download terminar':'downloads terminarem'}. Começa automaticamente. Enquanto isso, você pode voltar à etapa 1 e colar outro link.</p>` : '';
+    card.innerHTML = `<div class="row" style="justify-content:space-between"><h2 style="margin:0">${headTitle}</h2><span class="badge acc">${done} de ${total} concluídos</span></div>${headNote}
+      ${j.trim ? `<div class="small muted" style="margin-top:6px">✂️ Trecho de ${fmtDur(j.trim.start)} a ${fmtDur(j.trim.end)}: primeiro o arquivo completo é baixado, depois cortado.</div>` : ''}
+      <div class="bar ${waiting ? '' : 'striped'}" style="margin-top:14px"><i style="width:${overall.toFixed(1)}%"></i></div>
       ${cur ? `<div class="cur"><img src="${esc(cur.thumbnail||'')}" alt=""><div>
         <div class="ct">${esc(cur.title||'')}</div><div class="cs">${esc(cur.stage||'')}</div>
         <div class="bar ${cur.status==='processing'?'ok':''}"><i style="width:${(cur.percent||0).toFixed(1)}%"></i></div>
         <div class="stats"><span>${(cur.percent||0).toFixed(0)}%</span>${cur.total?`<span><b>${fmtBytes(cur.downloaded)}</b> / ${fmtBytes(cur.total)}</span>`:''}${cur.speed?`<span>⚡ <b>${fmtSpeed(cur.speed)}</b></span>`:''}${cur.eta!=null?`<span>⏳ ${fmtDur(cur.eta)} restantes</span>`:''}</div>
       </div></div>` : ''}
       <div class="jobs">${j.items.map(jobRow).join('')}</div>`;
-    $('#progressActions').innerHTML = `<span class="small muted">Mantenha esta aba aberta até terminar.</span><div class="right"><button class="btn danger" id="cancelBtn">✕ Cancelar</button></div>`;
+    $('#progressActions').innerHTML = `<button class="btn ghost" id="anotherBtn" title="A fila continua baixando enquanto você prepara o próximo">➕ Colar outro link</button><span class="small muted">Mantenha esta aba aberta até terminar.</span><div class="right"><button class="btn danger" id="cancelBtn">✕ Cancelar</button></div>`;
+    $('#anotherBtn').addEventListener('click', () => { $('#urlInput').value = ''; S.maxStep = 1; goto(1); $$('.step').forEach(s=>s.classList.remove('done')); $('#urlInput').focus(); });
     $('#cancelBtn').addEventListener('click', async () => { if(await confirmModal({title:'Cancelar downloads?', text:'O arquivo atual será descartado. Os que já terminaram continuam disponíveis.', ok:'Cancelar downloads', cancel:'Continuar baixando', danger:true})) { await api('cancel_job', S.jobId); toast('Cancelando…', 'info'); } });
     resize();
   }
@@ -824,12 +916,52 @@
     const zb = $('#zipBtn'); if(zb) zb.addEventListener('click', async () => { busy(zb, true, 'Compactando…'); const r = await api('zip_job', j.id); busy(zb, false); if(!r.ok) return toast(r.error, 'err'); toast(`ZIP pronto (${r.size_label}).`, 'ok'); downloadRel(r.rel, zb); });
     const rb = $('#retryBtn'); if(rb) rb.addEventListener('click', async () => {
       const items = errs.map(i => ({id:i.id, url:i.url, title:i.title, thumbnail:i.thumbnail}));
-      const r = await api('start_download', { items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder });
-      if(!r.ok) return toast(r.error, 'err'); S.jobId = r.job_id; renderProgress(null); poll();
+      const r = await api('start_download', { items, mode: j.mode, height: j.height, audio_format: j.audio_format, audio_quality: j.audio_quality, embed_meta: j.embed_meta, save_drive: j.save_drive, folder: j.folder, trim: items.length === 1 ? j.trim : null, label: (j.label || '') + ' (nova tentativa)' });
+      if(!r.ok) return toast(r.error, 'err'); S.jobId = r.job_id; renderProgress(null); poll(); startQueuePolling();
     });
     resize();
   }
   root.addEventListener('click', e => { const b = e.target.closest('[data-dl]'); if(b && !b.disabled) downloadRel(b.dataset.dl, b); });
+
+  // ---------- fila de downloads (visível em todas as etapas) ----------
+  S.queueTimer = null; S.knownJobs = {};
+  function startQueuePolling(){
+    if(S.queueTimer) return;
+    pollQueue();
+    S.queueTimer = setInterval(pollQueue, 1500);
+  }
+  async function pollQueue(){
+    let r;
+    try { r = await api('jobs_list'); } catch(e){ return; }
+    if(!r || !r.ok) return;
+    renderQueue(r.jobs);
+    // avisa quando uma tarefa termina enquanto o usuário está em outra etapa
+    r.jobs.forEach(j => {
+      const prev = S.knownJobs[j.id];
+      if(prev && prev !== j.status && (j.status === 'finished' || j.status === 'cancelled') && !(S.step === 5 && S.jobId === j.id)){
+        toast(j.status === 'cancelled' ? `Download cancelado: ${j.label || j.first_title}` : (j.errors ? `Concluído com ${j.errors} erro(s): ${j.label || j.first_title}` : `Download concluído: ${j.label || j.first_title}. Veja na fila para baixar.`), j.errors ? 'warn' : 'ok', 7000);
+      }
+      S.knownJobs[j.id] = j.status;
+    });
+    if(!r.active){ clearInterval(S.queueTimer); S.queueTimer = null; }
+  }
+  function renderQueue(jobs){
+    const bar = $('#queueBar'), list = $('#queueList');
+    if(!jobs.length){ bar.hidden = true; return; }
+    bar.hidden = false;
+    const active = jobs.filter(j => j.status === 'queued' || j.status === 'running').length;
+    $('#queueCount').textContent = active ? `${active} em andamento` : 'tudo concluído';
+    $('#queueHint').textContent = active ? 'Você pode colar outro link enquanto estes baixam.' : 'Clique em Ver para baixar os arquivos.';
+    list.innerHTML = jobs.slice(-8).reverse().map(j => {
+      const st = j.status === 'running' ? 'run' : (j.status === 'queued' ? '' : (j.errors ? 'warn' : 'done'));
+      const icon = j.status === 'running' ? '' : (j.status === 'queued' ? '…' : (j.errors ? '!' : '✓'));
+      const sub = j.status === 'queued' ? 'Na fila, aguardando' : (j.status === 'running' ? `${esc(j.current || '')} · ${esc(j.stage || '')}` : (j.status === 'cancelled' ? 'Cancelado' : `${j.done} de ${j.total} prontos${j.errors ? ` · ${j.errors} com erro` : ''}`));
+      return `<div class="qjob ${S.jobId === j.id ? 'viewing' : ''}"><div class="st ${st}">${icon}</div><div><div class="ql" title="${esc(j.label || j.first_title)}">${esc(j.label || j.first_title || j.id)}</div><div class="qs">${sub}</div></div><div class="bar ${j.status==='finished' && !j.errors ? 'ok' : ''} ${j.status==='running' ? 'striped' : ''}"><i style="width:${j.percent}%"></i></div><button class="btn sm ${S.jobId === j.id && S.step === 5 ? 'ghost' : 'primary'}" data-view="${j.id}">${S.jobId === j.id && S.step === 5 ? 'Vendo' : 'Ver'}</button></div>`;
+    }).join('');
+    resize();
+  }
+  $('#queueList').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if(b) viewJob(b.dataset.view); });
+  function viewJob(id){ S.jobId = id; goto(5); renderProgress(null); poll(); pollQueue(); }
 
   bootstrap().catch(e => { toast('Erro ao iniciar: ' + e.message, 'err', 8000); showFatal('Falha ao chamar o Python (ytd.bootstrap). Verifique se a célula 2 terminou sem erro.\n' + (e.stack || e.message)); });
 })();
