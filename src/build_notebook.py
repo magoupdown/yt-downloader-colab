@@ -22,6 +22,9 @@ Baixe **vídeos e playlists do YouTube** em **MP4** (na resolução que quiser) 
 **Vídeos privados, +18 ou só para membros:** dentro do app, abra a seção *Cookies da sua conta*, carregue o arquivo `cookies.txt` exportado do seu navegador uma única vez. Com o Drive conectado ele fica salvo em `Meu Drive/YT_Downloader/cookies.txt` e é carregado automaticamente nas próximas vezes.
 
 > ⚠️ Uso **pessoal**. Respeite os termos do YouTube e os direitos autorais dos criadores. Nunca compartilhe seu arquivo de cookies: ele dá acesso à sua conta.
+
+---
+*Desenvolvido por **@emersonms** - 2026*
 """
 
 SETUP_PY = r'''#@title 1️⃣ Preparar o ambiente e entrar com a conta Google  { display-mode: "form" }

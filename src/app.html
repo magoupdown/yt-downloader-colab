@@ -228,6 +228,7 @@
   /* ---- misc ---- */
   #ytd .empty { text-align:center; padding:30px; color:var(--muted); font-size:14px; }
   #ytd footer { position:relative; padding:14px 22px 18px; border-top:1px solid var(--line); font-size:12px; color:var(--muted-2); display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between; }
+  #ytd footer .signature { color:var(--muted); } #ytd footer .signature b { color:var(--accent); font-weight:800; }
   #ytd .skeleton { background: linear-gradient(90deg, var(--panel-2), var(--line), var(--panel-2)); background-size:200% 100%; animation: ytdSk 1.2s infinite; border-radius:12px; }
   @keyframes ytdSk { to { background-position:-200% 0; } }
   #ytd .toasts { position:absolute; right:16px; bottom:16px; display:grid; gap:8px; z-index:20; max-width:min(380px, calc(100% - 32px)); }
@@ -410,6 +411,7 @@
 
   <footer>
     <span>Uso pessoal · respeite os termos do YouTube e os direitos dos criadores.</span>
+    <span class="signature">Desenvolvido por <b>@emersonms</b> - 2026</span>
     <span id="footInfo">yt-dlp</span>
   </footer>
 

@@ -56,3 +56,7 @@ python src/build_notebook.py .
 - Áudio do YouTube tem no máximo ~130–160 kbps (256 kbps em alguns casos). Escolher bitrate maior não melhora o som.
 - Arquivos temporários ficam em `/content/yt_downloader/downloads` enquanto a sessão do Colab estiver ativa. A célula 3️⃣ limpa essa pasta.
 - Uso pessoal. Respeite os termos do YouTube e os direitos dos criadores.
+
+---
+
+**Desenvolvido por [@emersonms](https://github.com/magoupdown) - 2026**
