@@ -1,5 +1,9 @@
 # ▶️ YT Downloader Pessoal (Google Colab)
 
+[![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/magoupdown/yt-downloader-colab/blob/main/YT_Downloader_Pessoal.ipynb)
+
+**👆 Clique no botão acima para abrir o app direto no Google Colab.** Depois rode a célula 1️⃣ (login Google) e a célula 2️⃣ (abre o aplicativo).
+
 Notebook do Google Colab com **interface de página web** para baixar vídeos e playlists do YouTube:
 
 - 🎬 **Vídeo em MP4** em qualquer resolução disponível (144p até 8K, com fps e tamanho estimado)
